@@ -17,6 +17,7 @@
 - [`@dfy-plugins/dsh-media-blocks`](plugins/media-blocks)：提供持久聊天媒体块和可扩展的多媒体展示；图片基础协议来自公共库，未来视频、网页等块仍可通过 `MediaResourceMap` 扩展。
 - [`@dfy-plugins/dsh-vision`](plugins/vision)：通过独立视觉路由为文本模型分析图片，主会话只接收文字结果。
 - [`@dfy-plugins/dsh-image-generation`](plugins/image-generation)：通过按需 Skill 和固定工具调用独立图片模型，支持官方图片块、参考图编辑与 Tool 内图片预览；media-blocks 为可选增强。
+- [`@dfy-plugins/dsh-visualize`](plugins/visualize)：通过 `dfy-visualize` Skill 和 `dfy_visualize_render` 工具，将工作区 HTML 安全发布为对话内可交互的会话级可视化产物。
 - [`@dfy-plugins/dsh-codex-bridge`](plugins/codex-bridge)：通过本机鉴权 MCP 将 Harness 会话、工具与 Skills 提供给 Codex；DSH 端与 Codex 伴生插件分别安装。
 
 所有发布包使用 `@dfy-plugins` npm scope；运行时 ID、API、CSS 和持久化目录按各自的兼容性要求命名，
@@ -62,6 +63,12 @@ dsh plugin --profile web add ./plugins/vision
 
 ```bash
 dsh plugin --profile web add ./plugins/image-generation
+```
+
+本地安装可视化插件：
+
+```bash
+dsh plugin --profile web add ./plugins/visualize
 ```
 
 本地安装 Codex Bridge 的 DSH 端：
