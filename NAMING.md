@@ -40,3 +40,4 @@
 | `@dfy-plugins/dsh-media-blocks` | `media-blocks` | 无 | `/api/dsh-media-blocks` | 图片复用 Harness attachments |
 | `@dfy-plugins/dsh-vision` | `vision` | `dsh-vision` | `/api/dsh-vision` | 无独立目录 |
 | `@dfy-plugins/dsh-image-generation` | `image-generation` | `dsh-image-generation` | `/api/dsh-image-generation` | 图片复用 Harness attachments |
+| `@dfy-plugins/dsh-turn-guard` | `turn-guard` | `dsh-turn-guard` | 无 | 无独立目录 |

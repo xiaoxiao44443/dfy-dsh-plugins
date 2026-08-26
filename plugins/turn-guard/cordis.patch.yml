@@ -1,0 +1,4 @@
+# @dfy-plugins/dsh-turn-guard bundle patch — Host convergence guard plus Client settings page.
+- insert:
+    - id: turn-guard
+      name: '@dfy-plugins/dsh-turn-guard'
