@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "DFY DSH plugins for DeepSeek Harness.",
+  "license": "MIT",
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "build": "pnpm --recursive run build",

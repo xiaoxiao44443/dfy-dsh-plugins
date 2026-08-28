@@ -91,3 +91,7 @@ codex plugin marketplace add xiaoxiao44443/dfy-dsh-plugins
 ```
 
 然后在 Codex 桌面端的插件列表中打开 **DFY DSH Plugins**，安装 **DFY DSH**。安装或更新后请新建 Codex 任务；已经打开的任务不会热加载插件和 MCP。
+
+## 许可证
+
+本仓库中的插件和公共库基于 [MIT License](LICENSE) 开源。DeepSeek Harness 及其他第三方依赖仍分别遵循其各自的许可证。
