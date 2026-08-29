@@ -24,5 +24,10 @@ test('media blocks keeps package, Cordis, API and content ids intentionally sepa
   assert.match(client, /existing\.replaceWith\(tag\)/);
   assert.doesNotMatch(client, /<style>\{STYLES\}<\/style>/);
   assert.match(client, /\.dsh-media-input/);
+  assert.match(client, /@container \(width <= 540px\)/);
+  assert.match(client, /conversation\.input\.left/);
+  assert.match(client, /conversation\.input\.plan/);
+  assert.match(client, /> div:has\(> div > \[data-slot="conversation\.input\.left"\] \.dsh-media-input\)/);
+  assert.doesNotMatch(client, /ResizeObserver/);
   assert.match(client, /locale: 'conversation'/);
 });

@@ -90,6 +90,14 @@ const STYLES = `
 .dsh-media-add:hover:not(:disabled) { background:var(--dsw-alias-bg-module-platform, rgba(127,127,127,.1)); color:var(--dsw-alias-label-primary, inherit); }
 .dsh-media-add:focus-visible { outline:2px solid var(--dsw-alias-brand-primary, #298df8); outline-offset:1px; }
 .dsh-media-add:disabled { cursor:default; opacity:.4; }
+@container (width <= 540px) {
+  [data-composer-card]
+    > div:has(> div > [data-slot="conversation.input.left"] .dsh-media-input)
+    > div
+    > div:has(> [data-slot="conversation.input.plan"])
+    button:has(> span:first-child[aria-hidden=true])
+    > span:nth-of-type(2):not([aria-hidden]) { display:none; }
+}
 .dsh-media-user-row { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
 .dsh-media-user-stack { display:flex; min-width:0; max-width:min(525px,82%); flex-direction:column; align-items:flex-end; gap:8px; }
 .dsh-media-user-bubble { max-width:100%; padding:10px 16px; border-radius:22px; background:var(--dsw-specific-bubble); color:var(--dsw-alias-label-primary); font-size:16px; line-height:24px; }
