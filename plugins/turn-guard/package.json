@@ -1,7 +1,7 @@
 {
   "name": "@dfy-plugins/dsh-turn-guard",
   "version": "0.1.0",
-  "description": "Detect repeated tool loops and enforce configurable per-turn convergence budgets in DeepSeek Harness.",
+  "description": "为单轮任务提供收敛提醒、重复调用检测和可配置的硬停止预算。",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
