@@ -3,10 +3,7 @@ import React from 'react';
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment';
 import {
   RpcId,
-  type IApiClient,
-  type PromptContentPart,
   type RpcResponse,
-  type SessionModels,
 } from '@deepseek-ai/dsh-client-connection/client';
 import {
   IconCheckOutline16,
@@ -41,7 +38,23 @@ interface ClientCtx {
     inject(name: string, register: () => unknown): unknown;
     register(options: SlotEntryOptions, component: unknown): unknown;
   };
-  connection: { api: IApiClient };
+  connection: { api?: LegacyApiClient };
+}
+
+interface LegacyPromptPayload {
+  sessionId: string;
+  content: readonly { type: string; [key: string]: unknown }[];
+  [key: string]: unknown;
+}
+
+interface LegacyApiClient {
+  sessions: {
+    prompt(payload: LegacyPromptPayload, signal?: AbortSignal): Promise<RpcResponse<{ accepted: true }>>;
+    models(
+      payload: { sessionId: string },
+      signal?: AbortSignal,
+    ): Promise<RpcResponse<{ current: unknown }>>;
+  };
 }
 
 interface MediaImageBlock {
@@ -358,7 +371,8 @@ function UserMediaNode({ node, loadImage, t }: ChatNodeProps): React.ReactElemen
   );
 }
 
-function installPromptBridge(api: IApiClient): () => void {
+function installPromptBridge(api: LegacyApiClient | undefined): () => void {
+  if (api === undefined) return () => {};
   const sessions = api.sessions;
   const original = sessions.prompt;
   const wrapped: typeof sessions.prompt = async (payload, signal) => {
@@ -370,7 +384,7 @@ function installPromptBridge(api: IApiClient): () => void {
     const response = await fetch(PROMPT_API, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...payload, selection: models.result.value.current satisfies SessionModels['current'] }),
+      body: JSON.stringify({ ...payload, selection: models.result.value.current }),
       signal,
     });
     const body = await jsonResponse<PromptEndpointResponse>(response);

@@ -5,10 +5,10 @@ import { BlockAssembler, createUserMessage, ReasoningEffortId } from '@deepseek-
 import type { LlmModelInfo, LlmResolvedModelInfo } from '@deepseek-ai/dsh-llm';
 import type {} from '@deepseek-ai/dsh-fs';
 import type {} from '@deepseek-ai/dsh-session-persistence';
-import { settingsNamespace } from '@deepseek-ai/dsh-settings';
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings';
 import type {} from '@deepseek-ai/dsh-skill';
 import { defineTool } from '@deepseek-ai/dsh-tools';
-import type { GenericCallView, JsonValue, ToolResult, ToolRunContext } from '@deepseek-ai/dsh-tools';
+import type { GenericCallView, ToolResult, ToolRunContext } from '@deepseek-ai/dsh-tools';
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver';
 import type { IncomingMessage } from 'node:http';
 import z from '@deepseek-ai/schemastery';
@@ -64,7 +64,7 @@ export const Config: z<Config> = z.object({
   maxTokens: z.number().step(1).min(64).max(8192).default(1024),
 });
 
-const SETTINGS_NS = settingsNamespace('dsh-vision');
+const SETTINGS_NS = 'dsh-vision' as SettingsNamespace;
 const API_PATH = '/api/dsh-vision/routes';
 const RESOURCE_API_PATH = '/api/dsh-vision/resource';
 const TOOL_NAME = 'dfy_vision_analyze';
@@ -385,7 +385,7 @@ interface VisionPresentationMeta {
   imageRefs: string[];
 }
 
-function visionPresentationMeta(value: VisionResultValue): JsonValue {
+function visionPresentationMeta(value: VisionResultValue): NonNullable<ToolResult['meta']> {
   return { version: 2, imageRefs: value.images.map((image) => image.imageRef) };
 }
 

@@ -3,9 +3,9 @@ import type { Context } from '@deepseek-ai/cordis';
 import type { Agent, AgentSetup } from '@deepseek-ai/dsh-agent';
 import type {} from '@deepseek-ai/dsh-agent';
 import type {} from '@deepseek-ai/dsh-agent-presets';
-import { CallId, MessageId } from '@deepseek-ai/dsh-llm';
+import { MessageId } from '@deepseek-ai/dsh-llm';
 import { SessionId } from '@deepseek-ai/dsh-session';
-import { settingsNamespace } from '@deepseek-ai/dsh-settings';
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings';
 import type {} from '@deepseek-ai/dsh-skill';
 import type {} from '@deepseek-ai/dsh-tools';
 import { WorkspaceId } from '@deepseek-ai/dsh-workspace';
@@ -46,7 +46,7 @@ export const Config: z<Config> = z.object({
   enabled: z.boolean().default(true),
 });
 
-const SETTINGS_NS = settingsNamespace('dsh-codex-bridge');
+const SETTINGS_NS = 'dsh-codex-bridge' as SettingsNamespace;
 const STATUS_PATH = '/api/dsh-codex-bridge/status';
 const DISCOVERY_PATH = process.env.DSH_CODEX_BRIDGE_FILE
   ?? join(homedir(), '.saltfish', 'dfy-dsh', 'codex-bridge-endpoint.json');
@@ -392,7 +392,7 @@ export function apply(ctx: Context, entryConfig: Config = {}): void {
       const toolName = params.name;
       const target = schemas.find((schema) => schema.name === toolName && schema.name !== 'run_code');
       if (target === undefined) throw new Error(`Harness 工具不存在或当前会话不可用：${toolName}`);
-      const callId = CallId(`codex-${randomUUID()}`);
+      const callId = `codex-${randomUUID()}` as Parameters<typeof ctx.tools.execute>[0]['callId'];
       const runCode = schemas.find((schema) => schema.name === 'run_code');
       if (runCode === undefined) {
         return ctx.agents.withInitiator(agent, () => ctx.tools.execute({

@@ -13,7 +13,7 @@ test('appearance registers durable settings, a sidebar page, and completed-turn 
   ]);
   assert.equal(JSON.parse(pkg).name, '@dfy-plugins/dsh-appearance');
   assert.match(patch, /id: appearance\r?\n\s+name: '@dfy-plugins\/dsh-appearance'/);
-  assert.match(host, /settingsNamespace\('dsh-appearance'\)/);
+  assert.match(host, /'dsh-appearance' as SettingsNamespace/);
   assert.match(client, /name: 'settings\.section'/);
   assert.match(client, /id: 'appearance'/);
   assert.match(client, /label: '外观'/);
@@ -55,6 +55,7 @@ test('appearance registers durable settings, a sidebar page, and completed-turn 
   assert.match(client, /data-chat-flow-kind='steering'/);
   assert.match(client, /dsh-media-user-bubble/);
   assert.match(client, /data-time-hover-root/);
+  assert.match(client, /data-actions-reveal/);
   assert.match(client, /\[class\*='_bubble'\]/);
   assert.match(client, /Math\.max\(13, fontSize - 2\)/);
   assert.match(client, /Math\.round\(fontSize \* lineHeightRatio\)/);
@@ -73,6 +74,14 @@ test('appearance registers durable settings, a sidebar page, and completed-turn 
   assert.match(client, /outputRow\.after\(host\)/);
   assert.match(client, /artifactIndices/);
   assert.match(client, /collapseProcess/);
+  assert.match(client, /const OFFICIAL_CHAT_SETTINGS_NAMESPACE = 'ui-chat'/);
+  assert.match(client, /installOfficialTranscriptCompatibility/);
+  assert.match(client, /officialScope\.set\('transcriptView', 'normal'\)/);
+  assert.match(client, /appearanceScope\.subscribe\(reconcile\)/);
+  assert.match(client, /processFoldingActivated/);
+  assert.match(client, /customProcessFoldingEnabled/);
+  assert.match(client, /officialSnapshot\.status !== 'loading'/);
+  assert.match(client, /officialChatScope\.subscribe\(scheduleRefresh\)/);
   assert.match(client, /ctx\.get\?\.\('desktopContextMenu'\)/);
   assert.match(client, /ctx\.inject\(\['desktopContextMenu'\]/);
   assert.match(client, /id: 'appearance\.open-file'/);

@@ -2,7 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
-import { settingsNamespace } from '@deepseek-ai/dsh-settings';
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings';
 import type { ToolExecution, ToolExecutionResult } from '@deepseek-ai/dsh-tools';
 import z from '@deepseek-ai/schemastery';
 import {
@@ -43,7 +43,7 @@ export const Config: z<Config> = z.object({
   repeatedFailureLimit: z.number().step(1).min(2).max(20).default(3),
 });
 
-const SETTINGS_NS = settingsNamespace('dsh-turn-guard');
+const SETTINGS_NS = 'dsh-turn-guard' as SettingsNamespace;
 const PLUGIN_ID = '@dfy-plugins/dsh-turn-guard';
 
 function guardMessage(text: string, summary = '任务守卫建议当前回合收敛') {

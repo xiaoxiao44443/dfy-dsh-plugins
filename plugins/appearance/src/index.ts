@@ -1,6 +1,6 @@
 /** @dfy-plugins/dsh-appearance Host half: durable appearance preferences. */
 import type { Context } from '@deepseek-ai/cordis';
-import { settingsNamespace } from '@deepseek-ai/dsh-settings';
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings';
 import z from '@deepseek-ai/schemastery';
 
 export const name = 'appearance';
@@ -20,7 +20,7 @@ export const Config: z<Config> = z.object({
   processLineHeightRatio: z.number().step(0.05).min(1).max(1.9).default(1.4),
 });
 
-const SETTINGS_NS = settingsNamespace('dsh-appearance');
+const SETTINGS_NS = 'dsh-appearance' as SettingsNamespace;
 
 export function apply(ctx: Context, entryConfig: Config): void {
   ctx.settings.register(SETTINGS_NS, Config, { base: entryConfig });

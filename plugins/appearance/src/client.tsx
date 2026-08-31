@@ -1,6 +1,5 @@
 /** @dfy-plugins/dsh-appearance Client half: settings page and completed-turn folding. */
 import React from 'react';
-import { resolveWorkspacePath } from '@deepseek-ai/dsh-client-runtime/client';
 
 import {
   DEFAULT_CHAT_FONT_SIZE,
@@ -12,8 +11,10 @@ import {
   MIN_CHAT_FONT_SIZE,
   MIN_CHAT_LINE_HEIGHT_RATIO,
   MIN_PROCESS_LINE_HEIGHT_RATIO,
+  customProcessFoldingEnabled,
   normalizeAppearanceSettings,
   planCompletedProcessSegments,
+  processFoldingActivated,
   type AppearanceSettings,
 } from './logic.js';
 
@@ -28,6 +29,10 @@ interface SettingsScope<T> {
   getSnapshot(): SettingsSnapshot<T>;
   subscribe(listener: () => void): () => void;
   set(field: string, value: unknown): Promise<void>;
+}
+
+interface OfficialChatSettings {
+  transcriptView?: 'normal' | 'compact';
 }
 
 interface SlotEntryOptions {
@@ -94,12 +99,21 @@ export const inject = ['slots', 'settingsScope'];
 const STYLE_ID = '@dfy-plugins/dsh-appearance';
 const BODY_ATTRIBUTE = 'data-dsh-appearance';
 const SETTINGS_NAMESPACE = 'dsh-appearance';
+const OFFICIAL_CHAT_SETTINGS_NAMESPACE = 'ui-chat';
 const MEDIA_CONTENT = 'img, video, audio';
 const IMAGE_PROCESS_CONTENT = 'img, [data-tool="dfy_vision_analyze"]';
 const ARTIFACT_OUTPUT = '[data-dsh-visualization-output], [data-dsh-image-output]';
 const ARTIFACT_CONTENT = '[data-dsh-artifact-content]';
 const TYPOGRAPHY_SAVE_DEBOUNCE_MS = 250;
 const REVEAL_FILE_PATH = '/api/dsh-desktop/shell/reveal';
+
+function resolveWorkspacePath(cwd: string | undefined, path: string): string {
+  if (/^(?:[a-z]:[\\/]|\\\\|\/)/iu.test(path)) return path;
+  if (cwd === undefined || cwd.length === 0) return path;
+  const base = cwd.replace(/[\\/]+$/u, '');
+  const relative = path.replace(/^[\\/]+/u, '');
+  return `${base}/${relative}`;
+}
 
 function fileLinkButton(target: Element): HTMLButtonElement | null {
   const button = target.closest('button');
@@ -261,7 +275,11 @@ body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='assistant-step']
   line-height: var(--dsh-appearance-chat-line-height) !important;
 }
 body[${BODY_ATTRIBUTE}] :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering'])
-  :is(.dsh-media-user-bubble, [data-time-hover-root] > div:first-child > [class*='_bubble']) {
+  :is(
+    .dsh-media-user-bubble,
+    [data-time-hover-root] > div:first-child > [class*='_bubble'],
+    [data-actions-reveal] > div:first-child > [class*='_bubble']
+  ) {
   font-size: var(--dsh-appearance-chat-font-size) !important;
   line-height: var(--dsh-appearance-chat-line-height) !important;
 }
@@ -407,6 +425,63 @@ function installPreferences(scope: SettingsScope<Partial<AppearanceSettings>>): 
     document.body.style.removeProperty('--dsh-appearance-chat-line-height');
     document.body.style.removeProperty('--dsh-appearance-process-font-size');
     document.body.style.removeProperty('--dsh-appearance-process-line-height');
+  };
+}
+
+/**
+ * Alpha.1 introduced a whole-Turn Compact disclosure. Appearance owns a
+ * finer per-response disclosure, so disable Compact whenever that disclosure
+ * is enabled (including its initial enabled state). Older Harness versions
+ * expose no ui-chat namespace and keep the existing behavior. A later explicit
+ * user choice is not fought until the plugin disclosure is toggled off and on.
+ */
+function installOfficialTranscriptCompatibility(
+  appearanceScope: SettingsScope<Partial<AppearanceSettings>>,
+  officialScope: SettingsScope<OfficialChatSettings>,
+): () => void {
+  let disposed = false;
+  let previouslyEnabled: boolean | undefined;
+  let pendingEnable = false;
+  let writing = false;
+  const reconcile = (): void => {
+    if (disposed) return;
+    const appearanceSnapshot = appearanceScope.getSnapshot();
+    if (appearanceSnapshot.status !== 'ready') return;
+    const enabled = normalizeAppearanceSettings(
+      appearanceSnapshot.value,
+    ).collapseCompletedProcess;
+    if (previouslyEnabled === undefined || enabled !== previouslyEnabled) {
+      pendingEnable = processFoldingActivated(previouslyEnabled, enabled);
+      previouslyEnabled = enabled;
+    }
+    if (!pendingEnable || writing) return;
+
+    const officialSnapshot = officialScope.getSnapshot();
+    if (officialSnapshot.status === 'loading') return;
+    if (officialSnapshot.value?.transcriptView !== 'compact') {
+      pendingEnable = false;
+      return;
+    }
+    if (!officialSnapshot.writable) return;
+    pendingEnable = false;
+    writing = true;
+    void officialScope.set('transcriptView', 'normal')
+      .catch((cause: unknown) => {
+        console.warn('[appearance] failed to disable the built-in Compact transcript', cause);
+      })
+      .finally(() => {
+        writing = false;
+        reconcile();
+      });
+  };
+  const unsubscribers = [
+    appearanceScope.subscribe(reconcile),
+    officialScope.subscribe(reconcile),
+  ];
+  reconcile();
+  return () => {
+    disposed = true;
+    for (const unsubscribe of unsubscribers) unsubscribe();
   };
 }
 
@@ -636,7 +711,10 @@ function mutationAddsCompletedTurnOrArtifact(mutation: MutationRecord): boolean 
     && (node.matches(selector) || node.querySelector(selector) !== null));
 }
 
-function installCompletedTurnLayouts(scope: SettingsScope<Partial<AppearanceSettings>>): () => void {
+function installCompletedTurnLayouts(
+  scope: SettingsScope<Partial<AppearanceSettings>>,
+  officialChatScope: SettingsScope<OfficialChatSettings>,
+): () => void {
   let frame: number | undefined;
   let disclosureDisposers: Array<() => void> = [];
   const promotions = new Map<string, ArtifactPromotion>();
@@ -651,7 +729,15 @@ function installCompletedTurnLayouts(scope: SettingsScope<Partial<AppearanceSett
     for (const dispose of disclosureDisposers.reverse()) dispose();
     disclosureDisposers = [];
     const desiredPromotions = new Set<string>();
-    const collapseProcess = readSettings(scope).collapseCompletedProcess;
+    const officialSnapshot = officialChatScope.getSnapshot();
+    const officialTranscriptView = officialSnapshot.status === 'ready'
+      ? officialSnapshot.value?.transcriptView
+      : undefined;
+    const collapseProcess = officialSnapshot.status !== 'loading'
+      && customProcessFoldingEnabled(
+        readSettings(scope).collapseCompletedProcess,
+        officialTranscriptView,
+      );
     for (const marker of document.querySelectorAll<HTMLElement>('[data-turn-tail]')) {
       const tail = marker.closest<HTMLElement>('[data-chat-flow-kind="turn-tail"]');
       const turnId = Number(marker.dataset.turnTail);
@@ -672,12 +758,13 @@ function installCompletedTurnLayouts(scope: SettingsScope<Partial<AppearanceSett
     observer.observe(document.body, { childList: true, subtree: true });
   };
   refresh();
-  const unsubscribe = scope.subscribe(() => {
+  const scheduleRefresh = (): void => {
     if (frame === undefined) frame = window.requestAnimationFrame(refresh);
-  });
+  };
+  const unsubscribers = [scope.subscribe(scheduleRefresh), officialChatScope.subscribe(scheduleRefresh)];
 
   return () => {
-    unsubscribe();
+    for (const unsubscribe of unsubscribers) unsubscribe();
     observer.disconnect();
     if (frame !== undefined) window.cancelAnimationFrame(frame);
     for (const dispose of disclosureDisposers.reverse()) dispose();
@@ -914,9 +1001,19 @@ function AppearancePage({ scope }: { scope: SettingsScope<Partial<AppearanceSett
 
 export function apply(ctx: ClientCtx): void {
   const scope = ctx.settingsScope.bind<Partial<AppearanceSettings>>({ namespace: SETTINGS_NAMESPACE });
+  const officialChatScope = ctx.settingsScope.bind<OfficialChatSettings>({
+    namespace: OFFICIAL_CHAT_SETTINGS_NAMESPACE,
+  });
   ctx.effect(installStyles, 'dsh-appearance: client styles');
   ctx.effect(() => installPreferences(scope), 'dsh-appearance: apply preferences');
-  ctx.effect(() => installCompletedTurnLayouts(scope), 'dsh-appearance: completed turn layouts');
+  ctx.effect(
+    () => installOfficialTranscriptCompatibility(scope, officialChatScope),
+    'dsh-appearance: disable built-in compact transcript',
+  );
+  ctx.effect(
+    () => installCompletedTurnLayouts(scope, officialChatScope),
+    'dsh-appearance: completed turn layouts',
+  );
   ctx.inject(['desktopContextMenu'], (menuCtx) => {
     menuCtx.effect(() => installFileLinkContextMenu(menuCtx), 'dsh-appearance: file link context menu');
   });

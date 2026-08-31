@@ -8,7 +8,6 @@ import {
 import type {} from '@deepseek-ai/dsh-agent';
 import {
   createUserMessage,
-  deepFreeze,
   freezeMessage,
   isAgentLoopRequest,
   markAgentLoopRequest,
@@ -127,6 +126,19 @@ interface MediaPromptDiagnostic {
 }
 
 class RequestTooLargeError extends Error {}
+
+function deepFreeze<T>(value: T): T {
+  const seen = new WeakSet<object>();
+  const pending: unknown[] = [value];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node === null || typeof node !== 'object' || node instanceof AbortSignal || seen.has(node)) continue;
+    seen.add(node);
+    Object.freeze(node);
+    pending.push(...Object.values(node));
+  }
+  return value;
+}
 
 function sendJson(res: Parameters<WebRoute['handler']>[1], status: number, body: unknown): void {
   const payload = JSON.stringify(body);

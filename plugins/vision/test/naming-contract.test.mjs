@@ -15,7 +15,7 @@ test('vision separates runtime names from globally registered tool names', async
   assert.equal(JSON.parse(pkg).name, '@dfy-plugins/dsh-vision');
   assert.match(patch, /id: vision\r?\n\s+name: '@dfy-plugins\/dsh-vision'/);
   assert.match(host, /export const name = 'vision'/);
-  assert.match(host, /settingsNamespace\('dsh-vision'\)/);
+  assert.match(host, /'dsh-vision' as SettingsNamespace/);
   assert.match(host, /const API_PATH = '\/api\/dsh-vision\/routes'/);
   assert.match(host, /const RESOURCE_API_PATH = '\/api\/dsh-vision\/resource'/);
   assert.match(host, /req\.method === 'POST'/);

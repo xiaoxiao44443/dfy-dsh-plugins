@@ -11,3 +11,11 @@ conversation data; disabling or unloading the plugin removes every DOM marker.
 Media tool rows belong to the same per-output segment, so screenshots and visual
 analysis collapse with the process that produced the following text and return in
 their original position when that segment is expanded.
+
+On DSH 0.1.2, enabling the plugin's process folding switches the built-in
+`ui-chat.transcriptView` from `Compact` to `Normal`, then keeps its finer
+per-response disclosures. This also runs once at activation when process folding
+is already enabled. If the user later explicitly selects `Compact`, the plugin
+yields its own disclosure layer to avoid double folding until its folding switch
+is turned off and on again. DSH 0.1.1-rc.2 has no built-in Turn disclosure and
+continues through the original capability-detected path.

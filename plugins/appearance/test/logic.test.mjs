@@ -3,9 +3,27 @@ import test from 'node:test';
 
 import {
   DEFAULT_APPEARANCE_SETTINGS,
+  customProcessFoldingEnabled,
   normalizeAppearanceSettings,
   planCompletedProcessSegments,
+  processFoldingActivated,
 } from '../lib/logic.js';
+
+test('custom folding yields to the official Compact transcript across Harness generations', () => {
+  assert.equal(customProcessFoldingEnabled(true, undefined), true);
+  assert.equal(customProcessFoldingEnabled(true, 'normal'), true);
+  assert.equal(customProcessFoldingEnabled(true, 'compact'), false);
+  assert.equal(customProcessFoldingEnabled(false, undefined), false);
+  assert.equal(customProcessFoldingEnabled(false, 'normal'), false);
+});
+
+test('official transcript compatibility runs only when custom folding becomes enabled', () => {
+  assert.equal(processFoldingActivated(undefined, true), true);
+  assert.equal(processFoldingActivated(false, true), true);
+  assert.equal(processFoldingActivated(true, true), false);
+  assert.equal(processFoldingActivated(true, false), false);
+  assert.equal(processFoldingActivated(false, false), false);
+});
 
 test('appearance settings default and clamp the chat font size', () => {
   assert.deepEqual(normalizeAppearanceSettings(undefined), DEFAULT_APPEARANCE_SETTINGS);

@@ -72,6 +72,25 @@ export interface ProcessSegmentPlan {
   contextCount: number;
 }
 
+/**
+ * Keep the plugin's per-response disclosure off while the built-in Compact
+ * transcript is active. Undefined means the older Harness has no such policy.
+ */
+export function customProcessFoldingEnabled(
+  requested: boolean,
+  officialTranscriptView: 'normal' | 'compact' | undefined,
+): boolean {
+  return requested && officialTranscriptView !== 'compact';
+}
+
+/** Detect the initial/rising edge that may normalize the official transcript. */
+export function processFoldingActivated(
+  previouslyEnabled: boolean | undefined,
+  enabled: boolean,
+): boolean {
+  return enabled && previouslyEnabled !== true;
+}
+
 /** Group each process run with the next visible output and attach plugin artifacts to that output. */
 export function planCompletedProcessSegments(nodes: readonly ProcessFlowNode[]): ProcessSegmentPlan[] {
   const segments: ProcessSegmentPlan[] = [];

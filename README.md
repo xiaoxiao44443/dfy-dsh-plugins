@@ -21,6 +21,11 @@
 - [`@dfy-plugins/dsh-codex-bridge`](plugins/codex-bridge)：通过本机鉴权 MCP 将 Harness 会话、工具与 Skills 提供给 Codex；DSH 端与 Codex 伴生插件分别安装。
 - [`@dfy-plugins/dsh-turn-guard`](plugins/turn-guard)：为单轮任务提供收敛提醒、重复调用检测和可配置的硬停止预算。
 
+当前 `0.1.1` 插件版本同时覆盖 DeepSeek Harness `0.1.1-rc.2` 与
+`0.1.2-alpha.1` / `0.1.2-alpha.2`。仓库开发依赖继续锁定最新稳定版
+`0.1.1-rc.2`；`alpha.2` 已通过独立依赖矩阵，`alpha.1` 按官方 tag
+对比验证，两版差异均通过能力检测处理。
+
 所有发布包使用 `@dfy-plugins` npm scope；运行时 ID、API、CSS 和持久化目录按各自的兼容性要求命名，
 不会随包名做全局替换。新增或修改插件前请先阅读：
 

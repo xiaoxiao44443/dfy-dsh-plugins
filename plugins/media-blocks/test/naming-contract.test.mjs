@@ -27,6 +27,8 @@ test('media blocks keeps package, Cordis, API and content ids intentionally sepa
   assert.match(client, /@container \(width <= 540px\)/);
   assert.match(client, /conversation\.input\.left/);
   assert.match(client, /conversation\.input\.plan/);
+  assert.match(client, /connection: \{ api\?: LegacyApiClient \}/);
+  assert.match(client, /if \(api === undefined\) return \(\) => \{\};/);
   assert.match(client, /> div:has\(> div > \[data-slot="conversation\.input\.left"\] \.dsh-media-input\)/);
   assert.doesNotMatch(client, /ResizeObserver/);
   assert.match(client, /locale: 'conversation'/);

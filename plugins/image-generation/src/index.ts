@@ -6,10 +6,10 @@ import type {} from '@deepseek-ai/dsh-fs';
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver';
 import type { ContentBlock } from '@deepseek-ai/dsh-llm';
 import type {} from '@deepseek-ai/dsh-session-persistence';
-import { settingsNamespace } from '@deepseek-ai/dsh-settings';
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings';
 import type {} from '@deepseek-ai/dsh-skill';
 import { defineTool } from '@deepseek-ai/dsh-tools';
-import type { GenericCallView, JsonValue, ToolResult, ToolRunContext } from '@deepseek-ai/dsh-tools';
+import type { GenericCallView, ToolResult, ToolRunContext } from '@deepseek-ai/dsh-tools';
 import z from '@deepseek-ai/schemastery';
 import type MediaBlocks from '@dfy-plugins/dsh-media-blocks';
 import {
@@ -61,7 +61,7 @@ export const Config: z<Config> = z.object({
   size: z.string().default('auto'),
 });
 
-const SETTINGS_NS = settingsNamespace('dsh-image-generation');
+const SETTINGS_NS = 'dsh-image-generation' as SettingsNamespace;
 const STATUS_API = '/api/dsh-image-generation/status';
 const RESOURCE_API = '/api/dsh-image-generation/resource';
 const TOOL_NAME = 'dfy_image_generate';
@@ -446,8 +446,8 @@ async function requestImages(
   };
 }
 
-function imagePresentationMeta(value: ImageGenerationValue): JsonValue {
-  return { images: value.images } as unknown as JsonValue;
+function imagePresentationMeta(value: ImageGenerationValue): NonNullable<ToolResult['meta']> {
+  return { images: value.images } as unknown as NonNullable<ToolResult['meta']>;
 }
 
 function isPresentationMeta(value: unknown): value is ImagePresentationMeta {

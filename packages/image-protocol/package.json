@@ -1,6 +1,6 @@
 {
   "name": "@dfy-plugins/image-protocol",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared image attachment references, validation and result projection for DFY DSH plugins.",
   "type": "module",
   "main": "lib/index.js",
@@ -32,8 +32,8 @@
     "@dfy-plugins/resource-core": "workspace:^"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-attachment": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-llm": "^0.1.1-rc.2"
+    "@deepseek-ai/dsh-attachment": "^0.1.1-rc.2 || ^0.1.2-alpha.1",
+    "@deepseek-ai/dsh-llm": "^0.1.1-rc.2 || ^0.1.2-alpha.1"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-attachment": "^0.1.1-rc.2",
