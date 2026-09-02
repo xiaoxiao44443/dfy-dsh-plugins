@@ -69,7 +69,8 @@ interface MediaImageBlock {
 }
 
 interface InputProps {
-  input: { phase: 'plain' | 'adjudicating' | 'claimed' | 'submitting' };
+  /** Present on older DSH composer slots; alpha.5 renders this slot with no owner props. */
+  input?: { phase: 'plain' | 'adjudicating' | 'claimed' | 'submitting' };
 }
 
 interface ChatNodeProps {
@@ -160,7 +161,7 @@ async function jsonResponse<T>(response: Response): Promise<T> {
 
 function MediaImageButton({ input }: InputProps): React.ReactElement {
   const fileRef = React.useRef<HTMLInputElement>(null);
-  const locked = input.phase === 'adjudicating' || input.phase === 'submitting';
+  const locked = input?.phase === 'adjudicating' || input?.phase === 'submitting';
   const add = (files: readonly File[]): void => {
     if (files.length === 0) return;
     const transfer = new DataTransfer();

@@ -1,6 +1,6 @@
 {
   "name": "@dfy-plugins/dsh-media-blocks",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "为 DeepSeek Harness 提供可扩展的多媒体引用块、持久化与聊天渲染。",
   "type": "module",
   "main": "lib/index.js",
