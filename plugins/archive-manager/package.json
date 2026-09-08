@@ -1,6 +1,6 @@
 {
   "name": "@dfy-plugins/dsh-archive-manager",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "归档对话管理：按项目查看、取消归档或永久删除已归档的对话。",
   "type": "module",
   "main": "lib/index.js",

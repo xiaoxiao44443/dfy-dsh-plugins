@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { zstdCompressSync } from 'node:zlib';
 import {
   deleteAllArchivedSessions,
   deleteArchivedSession,
@@ -106,6 +107,72 @@ test('listArchivedSessions 只返回归档且存在于磁盘的会话', async (t
     projectPath: '/tmp/项目甲',
     updatedAt: 1_710_000_000_000,
   });
+});
+
+test('listArchivedSessions 对 rc.1 未落盘的标题使用首条用户消息', async (t) => {
+  const root = makeRoot();
+  process.env.DSH_HOME = root;
+  t.after(() => {
+    if (ORIGINAL_HOME === undefined) delete process.env.DSH_HOME;
+    else process.env.DSH_HOME = ORIGINAL_HOME;
+    return rm(root, { recursive: true, force: true });
+  });
+  const { archivedId } = await scaffold(root);
+  const projectionPath = join(root, 'storages', 'session_projcache.json');
+  const projection = JSON.parse(await readFile(projectionPath, 'utf8'));
+  projection.tables.sessions[archivedId].rows.title.val = null;
+  projection.tables.sessions[archivedId].rows.sessionListMetadata.val.blank = true;
+  await writeFile(projectionPath, JSON.stringify(projection));
+
+  const logPath = join(root, 'sessions', 'proj-a', archivedId, 'session.jsonl.zstd');
+  const header = JSON.stringify({ type: 'session', version: 1, id: archivedId }) + '\n';
+  const events =
+    [
+      {
+        seq: 0,
+        type: 'user/message',
+        data: {
+          source: { kind: 'plugin', plugin: 'test-plugin' },
+          content: [{ type: 'text', text: '插件注入文本不能成为标题' }],
+        },
+      },
+      {
+        seq: 1,
+        type: 'user/message',
+        data: {
+          source: { kind: 'user' },
+          content: [{ type: 'text', text: '  打印1\n' }],
+        },
+      },
+    ]
+      .map((event) => JSON.stringify(event))
+      .join('\n') + '\n';
+  await writeFile(
+    logPath,
+    Buffer.concat([zstdCompressSync(Buffer.from(header)), zstdCompressSync(Buffer.from(events))]),
+  );
+
+  const [session] = await listArchivedSessions();
+  assert.equal(session.title, '打印1');
+  assert.notEqual(session.title, archivedId);
+});
+
+test('listArchivedSessions 在标题和日志都不可用时显示友好占位文本', async (t) => {
+  const root = makeRoot();
+  process.env.DSH_HOME = root;
+  t.after(() => {
+    if (ORIGINAL_HOME === undefined) delete process.env.DSH_HOME;
+    else process.env.DSH_HOME = ORIGINAL_HOME;
+    return rm(root, { recursive: true, force: true });
+  });
+  const { archivedId } = await scaffold(root);
+  const projectionPath = join(root, 'storages', 'session_projcache.json');
+  const projection = JSON.parse(await readFile(projectionPath, 'utf8'));
+  projection.tables.sessions[archivedId].rows.title.val = null;
+  await writeFile(projectionPath, JSON.stringify(projection));
+
+  const [session] = await listArchivedSessions();
+  assert.equal(session.title, '未命名对话');
 });
 
 test('deleteArchivedSession：归档会话可删、活跃会话拒绝、非法 id 抛错', async (t) => {

@@ -10,6 +10,7 @@
 import { readFile, readdir, rm, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
+import { zstdDecompressSync } from 'node:zlib';
 
 /** dsh 数据根目录（与 dsh CLI 的 DSH_HOME 约定一致）。 */
 export function dshHome(): string {
@@ -33,6 +34,16 @@ export function sessionProjectionJsonPath(): string {
 
 const SESSION_ID_RE =
   /^session-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const UNTITLED_SESSION_TITLE = '未命名对话';
+const FALLBACK_TITLE_MAX_WORDS = 5;
+const FALLBACK_TITLE_MAX_BYTES = 40;
+const ZSTD_MAGIC = 0xfd2fb528;
+
+const OSC_SEQUENCE = /(?:\u001B\]|\u009D)(?:(?!\u0007|\u001B\\)[\s\S])*(?:\u0007|\u001B\\|$)/gu;
+const CSI_SEQUENCE = /(?:\u001B\[|\u009B)[0-?]*[ -/]*[@-~]/gu;
+const ESC_SEQUENCE = /\u001B[@-_]/gu;
+const CONTROL_CHARACTER = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/gu;
+const DIRECTIONAL_CONTROL = /[\u200B\u200E\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]/gu;
 
 /** 会话 id 是否形如 session-<uuid>。 */
 export function isValidSessionId(id: string): boolean {
@@ -104,6 +115,162 @@ function finiteNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
+function truncateUtf8(input: string, maxBytes: number): string {
+  if (Buffer.byteLength(input, 'utf8') <= maxBytes) return input;
+  let output = '';
+  let used = 0;
+  for (const character of input) {
+    const bytes = Buffer.byteLength(character, 'utf8');
+    if (used + bytes > maxBytes) break;
+    output += character;
+    used += bytes;
+  }
+  return output;
+}
+
+/** 与 DSH session-title 的首条用户消息兜底规则保持一致。 */
+function fallbackSessionTitle(input: string): string | undefined {
+  const clean = input
+    .replace(OSC_SEQUENCE, '')
+    .replace(CSI_SEQUENCE, '')
+    .replace(ESC_SEQUENCE, '')
+    .replace(CONTROL_CHARACTER, '')
+    .replace(DIRECTIONAL_CONTROL, '')
+    .replace(/\s+/gu, ' ')
+    .trim();
+  const title = truncateUtf8(
+    clean.split(' ').filter(Boolean).slice(0, FALLBACK_TITLE_MAX_WORDS).join(' '),
+    FALLBACK_TITLE_MAX_BYTES,
+  ).trimEnd();
+  return title.length > 0 ? title : undefined;
+}
+
+interface ZstdFrameRange {
+  start: number;
+  end: number;
+}
+
+/** 扫描 DSH 追加写入的独立 Zstandard 帧；不把压缩块中的偶然 magic 当作边界。 */
+function scanZstdFrames(buffer: Buffer): ZstdFrameRange[] {
+  const frames: ZstdFrameRange[] = [];
+  let offset = 0;
+  while (offset < buffer.length) {
+    const start = offset;
+    if (buffer.length - offset < 4) break;
+    if (buffer.readUInt32LE(offset) !== ZSTD_MAGIC) {
+      throw new Error(`invalid Zstandard frame at byte ${offset}`);
+    }
+    offset += 4;
+    if (offset === buffer.length) break;
+
+    const descriptor = buffer.readUInt8(offset);
+    offset += 1;
+    if ((descriptor & 0x18) !== 0) throw new Error('invalid Zstandard frame descriptor');
+    const contentSizeFlag = descriptor >>> 6;
+    const singleSegment = (descriptor & 0x20) !== 0;
+    const checksum = (descriptor & 0x04) !== 0;
+    const dictionaryFlag = descriptor & 0x03;
+    const dictionaryBytes = dictionaryFlag === 3 ? 4 : dictionaryFlag;
+    const contentSizeBytes = contentSizeFlag === 0 ? (singleSegment ? 1 : 0) : 1 << contentSizeFlag;
+    const remainingHeaderBytes = (singleSegment ? 0 : 1) + dictionaryBytes + contentSizeBytes;
+    if (buffer.length - offset < remainingHeaderBytes) break;
+    offset += remainingHeaderBytes;
+
+    let complete = false;
+    for (;;) {
+      if (buffer.length - offset < 3) break;
+      const blockHeader = buffer.readUIntLE(offset, 3);
+      offset += 3;
+      const lastBlock = (blockHeader & 1) !== 0;
+      const blockType = (blockHeader >>> 1) & 3;
+      const blockSize = blockHeader >>> 3;
+      if (blockType === 3) throw new Error('invalid Zstandard block type');
+      const payloadBytes = blockType === 1 ? 1 : blockSize;
+      if (buffer.length - offset < payloadBytes) break;
+      offset += payloadBytes;
+      if (lastBlock) {
+        complete = true;
+        break;
+      }
+    }
+    if (!complete) break;
+    if (checksum) {
+      if (buffer.length - offset < 4) break;
+      offset += 4;
+    }
+    frames.push({ start, end: offset });
+  }
+  return frames;
+}
+
+interface SessionLogEvent {
+  type?: unknown;
+  data?: {
+    title?: unknown;
+    source?: { kind?: unknown };
+    content?: unknown;
+  };
+}
+
+function titleStateFromEvent(
+  event: SessionLogEvent,
+  state: { durableTitle?: string; firstUserTitle?: string },
+): void {
+  if (event.type === 'session/title') {
+    state.durableTitle = nonEmptyString(event.data?.title);
+    return;
+  }
+  if (state.firstUserTitle !== undefined || event.type !== 'user/message') return;
+  if (event.data?.source?.kind !== 'user' || !Array.isArray(event.data.content)) return;
+  const text = event.data.content
+    .filter(
+      (block): block is { type: 'text'; text: string } =>
+        typeof block === 'object' &&
+        block !== null &&
+        (block as { type?: unknown }).type === 'text' &&
+        typeof (block as { text?: unknown }).text === 'string',
+    )
+    .map((block) => block.text)
+    .join('\n');
+  state.firstUserTitle = fallbackSessionTitle(text);
+}
+
+function titleFromJsonLines(lines: Iterable<string>): string | undefined {
+  const state: { durableTitle?: string; firstUserTitle?: string } = {};
+  for (const line of lines) {
+    if (line.length === 0) continue;
+    try {
+      titleStateFromEvent(JSON.parse(line) as SessionLogEvent, state);
+    } catch {
+      // 标题兜底不应因单条损坏记录拖垮整个归档列表。
+    }
+  }
+  return state.durableTitle ?? state.firstUserTitle;
+}
+
+async function titleFromSessionLog(sessionDirectory: string): Promise<string | undefined> {
+  try {
+    const buffer = await readFile(join(sessionDirectory, 'session.jsonl.zstd'));
+    const lines: string[] = [];
+    for (const frame of scanZstdFrames(buffer)) {
+      lines.push(
+        ...zstdDecompressSync(buffer.subarray(frame.start, frame.end))
+          .toString('utf8')
+          .split('\n'),
+      );
+    }
+    return titleFromJsonLines(lines);
+  } catch {
+    // 兼容显式关闭压缩的 DSH 会话，也容忍缺失或损坏的 zstd 日志。
+  }
+  try {
+    const plain = await readFile(join(sessionDirectory, 'session.jsonl'), 'utf8');
+    return titleFromJsonLines(plain.split('\n'));
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * 列出所有仍存在于磁盘的归档会话（按最后修改时间倒序）。
  * 只返回「归档集合 ∩ 磁盘目录」中的会话。
@@ -142,13 +309,17 @@ export async function listArchivedSessions(): Promise<ArchivedSession[]> {
     for (const entry of entries) {
       if (!archived.has(entry) || !isValidSessionId(entry)) continue;
       try {
-        const st = await stat(join(sessionsRoot(), project, entry));
+        const sessionDirectory = join(sessionsRoot(), project, entry);
+        const st = await stat(sessionDirectory);
         const projection = projectionStore?.tables?.sessions?.[entry];
         const cachedCwd = nonEmptyString(projection?.identity?.cwd) ?? null;
         const workspace = workspaceBySession.get(entry);
         const projectPath = workspace?.path ?? cachedCwd;
         const projectTitle = workspace?.title ?? (projectPath === null ? '无项目' : basename(projectPath));
-        const title = nonEmptyString(projection?.rows?.title?.val) ?? entry;
+        const title =
+          nonEmptyString(projection?.rows?.title?.val) ??
+          (await titleFromSessionLog(sessionDirectory)) ??
+          UNTITLED_SESSION_TITLE;
         const updatedAt =
           finiteNumber(projection?.rows?.sessionListMetadata?.val?.lastPromptAt) ??
           finiteNumber(st.mtimeMs) ??
