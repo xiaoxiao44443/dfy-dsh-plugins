@@ -93,7 +93,10 @@ test('appearance registers durable settings, a sidebar page, and completed-turn 
   assert.match(client, /\/api\/dsh-desktop\/shell\/reveal/);
   assert.match(client, /id: 'appearance\.open-workspace-folder'/);
   assert.match(client, /label: '打开文件夹'/);
-  assert.match(client, /workspaces\.openPath\(path\)/);
+  assert.match(client, /\/api\/dsh-desktop\/shell\/open/);
+  assert.match(client, /typeof workspaces\?\.openPath === 'function'/);
+  assert.match(client, /await openWorkspaceFolder\(ctx, path\)/);
+  assert.match(client, /response\.status === 404/);
   assert.match(client, /data-produced-files-row/);
   assert.match(client, /data-dsh-artifact-url/);
 });

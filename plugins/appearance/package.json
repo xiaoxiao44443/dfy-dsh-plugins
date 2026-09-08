@@ -1,6 +1,6 @@
 {
   "name": "@dfy-plugins/dsh-appearance",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "DFY DSH 对话外观设置：完成后折叠过程轨迹并调节聊天字号。",
   "type": "module",
   "main": "lib/index.js",

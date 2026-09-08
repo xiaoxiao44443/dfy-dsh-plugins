@@ -76,7 +76,8 @@ interface WorkspacesService {
       items: readonly { title: string; path: string }[];
     };
   };
-  openPath(path: string): Promise<void>;
+  /** DSH <= 0.1.1 compatibility; removed from the rc.1 workspace controller. */
+  openPath?(path: string): Promise<void>;
 }
 
 interface ClientCtx {
@@ -105,6 +106,7 @@ const IMAGE_PROCESS_CONTENT = 'img, [data-tool="dfy_vision_analyze"]';
 const ARTIFACT_OUTPUT = '[data-dsh-visualization-output], [data-dsh-image-output]';
 const ARTIFACT_CONTENT = '[data-dsh-artifact-content]';
 const TYPOGRAPHY_SAVE_DEBOUNCE_MS = 250;
+const OPEN_FILE_PATH = '/api/dsh-desktop/shell/open';
 const REVEAL_FILE_PATH = '/api/dsh-desktop/shell/reveal';
 
 function resolveWorkspacePath(cwd: string | undefined, path: string): string {
@@ -200,15 +202,39 @@ function revealFileLabel(): string {
   return '在文件管理器中显示';
 }
 
-async function revealFile(path: string): Promise<void> {
-  const response = await fetch(REVEAL_FILE_PATH, {
+async function requestDesktopShell(pathname: string, path: string): Promise<Response> {
+  return await fetch(pathname, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ path }),
   });
-  if (response.ok) return;
+}
+
+async function shellFailure(response: Response): Promise<Error> {
   const payload = await response.json().catch(() => ({})) as { message?: unknown };
-  throw new Error(typeof payload.message === 'string' ? payload.message : `HTTP ${String(response.status)}`);
+  return new Error(typeof payload.message === 'string' ? payload.message : `HTTP ${String(response.status)}`);
+}
+
+async function revealFile(path: string): Promise<void> {
+  const response = await requestDesktopShell(REVEAL_FILE_PATH, path);
+  if (response.ok) return;
+  throw await shellFailure(response);
+}
+
+async function openWorkspaceFolder(ctx: ClientCtx, path: string): Promise<void> {
+  const workspaces = ctx.get?.('workspaces') as WorkspacesService | undefined;
+  if (typeof workspaces?.openPath === 'function') {
+    await workspaces.openPath(path);
+    return;
+  }
+  const response = await requestDesktopShell(OPEN_FILE_PATH, path);
+  if (response.ok) return;
+  // 已安装的旧桌面端还没有 open 接口；至少在资源管理器中定位到该目录。
+  if (response.status === 404) {
+    await revealFile(path);
+    return;
+  }
+  throw await shellFailure(response);
 }
 
 function installFileLinkContextMenu(ctx: ClientCtx): () => void {
@@ -243,9 +269,8 @@ function installFileLinkContextMenu(ctx: ClientCtx): () => void {
     when: (context) => workspacePathForTarget(ctx, context.target).length > 0,
     enabled: (context) => workspacePathForTarget(ctx, context.target).length > 0,
     onSelect: async (context) => {
-      const workspaces = ctx.get?.('workspaces') as WorkspacesService | undefined;
       const path = workspacePathForTarget(ctx, context.target);
-      if (workspaces !== undefined && path.length > 0) await workspaces.openPath(path);
+      if (path.length > 0) await openWorkspaceFolder(ctx, path);
     },
   })];
   return () => {
