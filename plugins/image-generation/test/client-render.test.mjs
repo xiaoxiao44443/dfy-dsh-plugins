@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 import { build } from 'esbuild';
@@ -8,7 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 const require = createRequire(import.meta.url);
 const built = await build({
-  entryPoints: [new URL('../src/client.tsx', import.meta.url).pathname],
+  entryPoints: [fileURLToPath(new URL('../src/client.tsx', import.meta.url))],
   bundle: true, write: false, format: 'cjs', platform: 'browser', target: 'es2022',
   external: ['react', 'react/jsx-runtime', '@deepseek-ai/dsh-client-ui-primitives'],
 });

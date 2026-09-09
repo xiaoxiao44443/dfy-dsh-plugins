@@ -19,3 +19,13 @@ is already enabled. If the user later explicitly selects `Compact`, the plugin
 yields its own disclosure layer to avoid double folding until its folding switch
 is turned off and on again. DSH 0.1.1-rc.2 has no built-in Turn disclosure and
 continues through the original capability-detected path.
+
+The desktop context menu exposes local `.html`, `.htm`, and `.xhtml` file links
+to both the built-in and default browser through their original `file:` URL.
+Clicking the file or selecting **打开文件** still invokes the official file
+preview. Published visualization links keep their existing HTTP URL behavior.
+An unrelated visualization elsewhere in the conversation cannot replace an
+ordinary file's URL. Source-less visualization metadata is used only inside a
+visualization container.
+Browser actions require a desktop build with local HTML support; network shares
+retain their ordinary file actions.

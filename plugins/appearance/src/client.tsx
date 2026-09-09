@@ -152,11 +152,19 @@ function visualizationLinkForFile(button: HTMLButtonElement | null): string {
       if (url.protocol !== 'http:' && url.protocol !== 'https:') return [];
       const source = normalizedFileIdentity(element.dataset.dshSourceFile);
       const sourceBasename = source.split('/').at(-1) ?? source;
-      return [{ url: url.href, matches: source.length > 0 && (source === identity || sourceBasename === basename) }];
+      return [{
+        url: url.href,
+        hasSource: source.length > 0,
+        matches: source.length > 0 && (source === identity
+          || ((!isAbsoluteHostPath(source) || !isAbsoluteHostPath(identity)) && sourceBasename === basename)),
+      }];
     });
     const matches = candidates.filter((candidate) => candidate.matches);
     if (matches.length === 1) return matches[0]!.url;
-    if (matches.length === 0 && candidates.length === 1) return candidates[0]!.url;
+    if (matches.length === 0 && candidates.length === 1 && !candidates[0]!.hasSource
+      && scope.matches('[data-dsh-visualization-output], [data-dsh-artifact-content="visualization"]')) {
+      return candidates[0]!.url;
+    }
     if (scope === document.body) break;
     scope = scope.parentElement;
   }
@@ -184,6 +192,28 @@ function resolvedFilePath(ctx: ClientCtx, target: Element): string {
   const cwd = snapshot?.current === undefined ? undefined : snapshot.byId[snapshot.current]?.cwd;
   const resolved = resolveWorkspacePath(cwd, path);
   return isAbsoluteHostPath(resolved) ? resolved : '';
+}
+
+function localHtmlFileURL(path: string): string {
+  if (!isAbsoluteHostPath(path) || !/\.(?:html?|xhtml)$/iu.test(path) || path.includes('\0')) return '';
+  // Network shares are not local browser targets. Keep their existing file actions.
+  if (/^(?:\\\\|\/\/)/u.test(path)) return '';
+  const windowsDrive = /^[a-z]:[\\/]/iu.test(path) ? path.slice(0, 2) : '';
+  const pathname = windowsDrive.length > 0 ? path.slice(2).replaceAll('\\', '/') : path;
+  try {
+    // Encode each path segment so #, %, spaces and Unicode remain filename characters.
+    const encoded = pathname.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+    return new URL(windowsDrive.length > 0 ? `file:///${windowsDrive}${encoded}` : `file://${encoded}`).href;
+  } catch {
+    return '';
+  }
+}
+
+function localHtmlLinkForFile(ctx: ClientCtx, target: Element): string {
+  const path = filePathForButton(fileLinkButton(target));
+  // A URI must not become a path below the current session's working directory.
+  if (/^[a-z][a-z\d+.-]*:/iu.test(path) && !/^[a-z]:[\\/]/iu.test(path)) return '';
+  return localHtmlFileURL(resolvedFilePath(ctx, target));
 }
 
 function workspacePathForTarget(ctx: ClientCtx, target: Element): string {
@@ -244,7 +274,8 @@ function installFileLinkContextMenu(ctx: ClientCtx): () => void {
   const disposers = [service.register({
     id: 'appearance.open-file',
     label: '打开文件',
-    linkURL: (context) => visualizationLinkForFile(fileLinkButton(context.target)),
+    linkURL: (context) => visualizationLinkForFile(fileLinkButton(context.target))
+      || localHtmlLinkForFile(ctx, context.target),
     icon: 'external-link',
     group: 'appearance-file-links',
     order: 0,
