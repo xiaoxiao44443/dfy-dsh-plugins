@@ -1,6 +1,6 @@
 {
   "name": "@dfy-plugins/resource-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Versioned resource references and provider registry shared by DFY DSH plugins.",
   "type": "module",
   "main": "lib/index.js",
@@ -9,6 +9,10 @@
     ".": {
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
+    },
+    "./session-storage": {
+      "types": "./lib/session-storage.d.ts",
+      "default": "./lib/session-storage.js"
     },
     "./package.json": "./package.json"
   },

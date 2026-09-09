@@ -5,10 +5,24 @@ import {
   freezeMessage,
   type ContentBlock,
   type LlmFailure,
+  type StreamChunk,
   type UserMessage,
 } from '@deepseek-ai/dsh-llm';
-import type { SessionEvent, TurnEndReason } from '@deepseek-ai/dsh-session';
+import type { SessionEvent as HarnessSessionEvent, TurnEndReason } from '@deepseek-ai/dsh-session';
 import { createHash } from 'node:crypto';
+import { chunkText, settledText, LiveAssistantStream, type AssistantStreamFrame } from './streams.js';
+
+// V3 settles assistant messages instead of persisting stream chunks. Keep the
+// released chunk shape here so old hosts remain readable with either SDK's types.
+type SessionEvent = HarnessSessionEvent | {
+  type: 'assistant/chunk';
+  seq: HarnessSessionEvent['seq'];
+  time: number;
+  data: { turn: number; step: number; chunk: StreamChunk };
+} | {
+  type: 'assistant/attempt'; seq: HarnessSessionEvent['seq']; time: number;
+  data: { turn: number; step: number; stream: unknown[] };
+};
 
 export type RunMode = 'queue' | 'steer';
 export type RunStatus = 'queued' | 'running' | 'cancelling' | 'completed' | 'failed' | 'cancelled';
@@ -57,6 +71,8 @@ export interface RunSnapshot {
   latestText: string;
   textDelta: string;
   reasoningDelta: string;
+  /** Replace previous streamed output when a transient attempt was abandoned. */
+  outputReset: boolean;
   toolCalls: Record<string, unknown>[];
   events: Record<string, unknown>[];
   eventsTruncated: boolean;
@@ -69,6 +85,17 @@ const RUN_PREFIX = 'dsh-run-';
 const MAX_OUTPUT_CHARS = 500_000;
 const MAX_ARGUMENT_CHARS = 20_000;
 const DEFAULT_MAX_EVENTS = 100;
+
+/** rc.1+ exposes immutable snapshots; retain older hosts' event-array support. */
+function sessionEvents(session: Agent['session']): readonly SessionEvent[] {
+  const view = session as unknown as {
+    snapshotEvents?: () => readonly SessionEvent[];
+    events?: readonly SessionEvent[];
+  };
+  if (typeof view.snapshotEvents === 'function') return view.snapshotEvents();
+  if (Array.isArray(view.events)) return view.events;
+  throw new Error('当前 Harness 不支持读取会话事件');
+}
 
 function bounded(value: string, maximum: number): { text: string; truncated: boolean } {
   if (value.length <= maximum) return { text: value, truncated: false };
@@ -162,6 +189,7 @@ function eventTurn(event: SessionEvent): number | undefined {
     case 'step/end':
     case 'assistant/chunk':
     case 'assistant/message':
+    case 'assistant/attempt':
     case 'tool/call':
     case 'tool/result':
       return event.data.turn;
@@ -195,14 +223,14 @@ function unknownError(error: unknown, step?: number): RunError {
   return { message, ...(code === undefined ? {} : { code }), ...(step === undefined ? {} : { step }) };
 }
 
-function cursorParts(cursor: string | undefined): { revision: number; seq: number } | undefined {
+function cursorParts(cursor: string | undefined): { revision: number; seq: number; text?: number; reasoning?: number; epoch?: number } | undefined {
   if (cursor === undefined) return undefined;
-  const match = /^(\d+):(\d+)$/.exec(cursor);
+  const match = /^(\d+):(\d+)(?::(\d+):(\d+):(\d+))?$/.exec(cursor);
   if (match === null) throw new Error('cursor 格式无效');
   const revision = Number(match[1]);
   const seq = Number(match[2]);
-  if (!Number.isSafeInteger(revision) || !Number.isSafeInteger(seq)) throw new Error('cursor 超出有效范围');
-  return { revision, seq };
+  if (match.slice(1).some((value) => value !== undefined && !Number.isSafeInteger(Number(value)))) throw new Error('cursor 超出有效范围');
+  return { revision, seq, ...(match[3] === undefined ? {} : { text: Number(match[3]), reasoning: Number(match[4]), epoch: Number(match[5]) }) };
 }
 
 function findTurnAndSeq(events: readonly SessionEvent[], messageId: string): { turn?: number; seq?: number } {
@@ -222,9 +250,10 @@ export function findMessageInAgent(agent: Agent, messageId: string): LocatedMess
   if (queued !== undefined) return { message: queued, mode: 'queue', startSeq: agent.session.seq };
   const steering = agent.inbox.nextStep.find((message) => String(message.id) === messageId);
   if (steering !== undefined) return { message: steering, mode: 'steer', startSeq: agent.session.seq };
-  const located = findTurnAndSeq(agent.session.events, messageId);
+  const events = sessionEvents(agent.session);
+  const located = findTurnAndSeq(events, messageId);
   if (located.seq === undefined) return undefined;
-  const event = agent.session.events[located.seq];
+  const event = events[located.seq];
   if (event?.type !== 'user/message') return undefined;
   return {
     message: event.data,
@@ -308,6 +337,7 @@ function projectEvent(event: SessionEvent, turnForUser?: number): Record<string,
 export class RunTracker {
   private readonly records = new Map<string, RunRecord>();
   private readonly waiters = new Map<string, Set<() => void>>();
+  private readonly streams = new Map<Agent, LiveAssistantStream>();
 
   constructor(private readonly agents: () => readonly Agent[]) {}
 
@@ -379,6 +409,16 @@ export class RunTracker {
     }
   }
 
+  onAssistantStream(agent: Agent, frame: AssistantStreamFrame): void {
+    let stream = this.streams.get(agent);
+    if (stream === undefined) { stream = new LiveAssistantStream(); this.streams.set(agent, stream); }
+    const turn = frame.type === 'start' ? frame.turn : stream.attempt?.turn;
+    if (!stream.accept(frame, agent.session.seq)) return;
+    for (const record of this.records.values()) {
+      if (record.agentId === String(agent.id) && record.turn === turn) this.changed(record);
+    }
+  }
+
   onRequestError(agent: Agent, turn: number, step: number, failure: LlmFailure): void {
     for (const record of this.records.values()) {
       if (record.agentId !== String(agent.id) || record.turn !== turn) continue;
@@ -396,6 +436,7 @@ export class RunTracker {
   }
 
   onDisposed(agent: Agent): void {
+    this.streams.delete(agent);
     for (const record of this.records.values()) {
       if (record.agentId !== String(agent.id)) continue;
       record.disposed = true;
@@ -425,7 +466,7 @@ export class RunTracker {
     const record = this.requireRecord(runId);
     const agent = this.agents().find((candidate) => String(candidate.id) === record.agentId);
     const parsedCursor = cursorParts(afterCursor);
-    const events = agent?.session.events ?? [];
+    const events = agent === undefined ? [] : sessionEvents(agent.session);
     const located = agent === undefined ? undefined : findTurnAndSeq(events, record.messageId);
     const turn = record.turn ?? located?.turn;
     if (record.turn === undefined && turn !== undefined) record.turn = turn;
@@ -453,31 +494,41 @@ export class RunTracker {
     else status = agent?.status === 'running' ? 'running' : 'failed';
 
     let latestTextRaw = '';
-    let hasTextChunks = false;
+    let latestReasoningRaw = '';
     let textDeltaRaw = '';
     let reasoningDeltaRaw = '';
     const afterSeq = parsedCursor?.seq ?? record.startSeq;
+    const legacyChunks = relevant.some((event) => event.type === 'assistant/chunk');
     for (const event of relevant) {
-      if (event.type === 'assistant/chunk') {
-        if (event.data.chunk.type === 'text-delta') {
-          hasTextChunks = true;
-          latestTextRaw += event.data.chunk.text;
-          if (event.seq >= afterSeq) textDeltaRaw += event.data.chunk.text;
-        } else if (event.data.chunk.type === 'reasoning-delta' && event.seq >= afterSeq) {
-          reasoningDeltaRaw += event.data.chunk.text;
-        }
-      }
+      const part = event.type === 'assistant/chunk' ? chunkText(event.data.chunk)
+        : !legacyChunks && (event.type === 'assistant/message' || event.type === 'assistant/attempt')
+          ? settledText(event.data) : undefined;
+      if (part === undefined) continue;
+      latestTextRaw += part.text;
+      latestReasoningRaw += part.reasoning;
+      if (event.seq >= afterSeq) { textDeltaRaw += part.text; reasoningDeltaRaw += part.reasoning; }
     }
-    if (!hasTextChunks) {
-      for (const event of relevant) {
-        if (event.type !== 'assistant/message') continue;
-        const text = event.data.message.content
-          .filter((block) => block.type === 'text')
-          .map((block) => block.text)
-          .join('');
-        latestTextRaw += text;
-        if (event.seq >= afterSeq) textDeltaRaw += text;
-      }
+    const live = agent === undefined ? undefined : this.streams.get(agent);
+    const attempt = live?.attempt;
+    // The durable event is appended before the live end frame: exclude the
+    // matching transient prefix even in that narrow notification interval.
+    if (!legacyChunks && attempt !== undefined && attempt.turn === turn && !relevant.some((event) => (
+      (event.type === 'assistant/message' || event.type === 'assistant/attempt')
+      && event.seq >= attempt.startSeq && event.data.step === attempt.step
+    ))) {
+      latestTextRaw += attempt.text;
+      latestReasoningRaw += attempt.reasoning;
+      textDeltaRaw += attempt.text;
+      reasoningDeltaRaw += attempt.reasoning;
+    }
+    const epoch = live?.epoch ?? 0;
+    const outputReset = parsedCursor?.text !== undefined && (
+      parsedCursor.epoch !== epoch || parsedCursor.text > latestTextRaw.length
+      || (parsedCursor.reasoning ?? 0) > latestReasoningRaw.length
+    );
+    if (parsedCursor?.text !== undefined) {
+      textDeltaRaw = latestTextRaw.slice(outputReset ? 0 : parsedCursor.text);
+      reasoningDeltaRaw = latestReasoningRaw.slice(outputReset ? 0 : parsedCursor.reasoning);
     }
     const latestText = bounded(latestTextRaw, MAX_OUTPUT_CHARS);
     const textDelta = bounded(textDeltaRaw, MAX_OUTPUT_CHARS);
@@ -531,7 +582,7 @@ export class RunTracker {
       errors.push({ message: '消息既不在队列中，也没有可关联的活动 turn。', code: 'RUN_LOST' });
     }
     const seq = agent?.session.seq ?? parsedCursor?.seq ?? record.startSeq;
-    const cursor = `${record.revision}:${seq}`;
+    const cursor = `${record.revision}:${seq}:${latestTextRaw.length}:${latestReasoningRaw.length}:${epoch}`;
     return {
       runId: record.runId,
       sessionId: record.agentId,
@@ -547,6 +598,7 @@ export class RunTracker {
       latestText: latestText.text,
       textDelta: textDelta.text,
       reasoningDelta: reasoningDelta.text,
+      outputReset,
       toolCalls,
       events: publicEvents,
       eventsTruncated: projected.length > publicEvents.length,
@@ -587,7 +639,7 @@ export class RunTracker {
     const projected: Record<string, unknown>[] = [];
     let currentTurn: number | undefined;
     let reachedLimit = false;
-    for (const event of agent.session.events) {
+    for (const event of sessionEvents(agent.session)) {
       if (event.type === 'turn/start') currentTurn = event.data.turn;
       const item = projectEvent(event, currentTurn);
       if (event.seq >= afterSeq && item !== undefined) {
@@ -612,6 +664,7 @@ export class RunTracker {
   dispose(): void {
     for (const waiting of this.waiters.values()) for (const finish of waiting) finish();
     this.waiters.clear();
+    this.streams.clear();
   }
 
   private requireRecord(runId: string): RunRecord {
@@ -628,7 +681,7 @@ export class RunTracker {
         messageId,
         mode: located.mode,
         startSeq: located.startSeq,
-        submittedAt: agent.session.events[located.startSeq]?.time ?? agent.session.header.createdAt,
+        submittedAt: sessionEvents(agent.session)[located.startSeq]?.time ?? agent.session.header.createdAt,
         ...(located.turn === undefined ? {} : { turn: located.turn }),
         revision: 0,
         cancellationRequested: false,

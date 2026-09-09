@@ -8,7 +8,7 @@ import { createReadStream } from 'node:fs';
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { DEFAULT_SETTINGS, normalizeSettings, type WallpaperSettings } from './logic.js';
+import { DEFAULT_SETTINGS, normalizeSettings, wallpaperTarget, type WallpaperRegion, type WallpaperSettings, type WallpaperTarget } from './logic.js';
 
 export const name = 'wallpaper';
 export const inject = ['webServer'];
@@ -20,23 +20,61 @@ const IMAGE_FILE = join(DATA_DIR, 'assets', 'current');
 const MAX_JSON_BYTES = 64 * 1024;
 const MAX_IMAGE_BYTES = 64 * 1024 * 1024;
 
-interface StoredConfig {
-  settings: WallpaperSettings;
+interface StoredImage {
   imageMime: string | null;
   imageVersion: number;
+}
+
+interface StoredConfig extends StoredImage {
+  settings: WallpaperSettings;
+  regionImages: Record<WallpaperRegion, StoredImage>;
+}
+
+interface ImageState {
+  hasImage: boolean;
+  imageUrl: string | null;
 }
 
 interface ClientState {
   settings: WallpaperSettings;
   hasImage: boolean;
   imageUrl: string | null;
+  regionImages: Record<WallpaperRegion, ImageState>;
 }
 
 const DEFAULT_CONFIG: StoredConfig = {
   settings: { ...DEFAULT_SETTINGS },
   imageMime: null,
   imageVersion: 0,
+  regionImages: { settings: { imageMime: null, imageVersion: 0 }, sidebar: { imageMime: null, imageVersion: 0 } },
 };
+
+function imageFile(target: WallpaperTarget): string {
+  return target === 'global' ? IMAGE_FILE : join(DATA_DIR, 'assets', target, 'current');
+}
+
+function storedImage(value: unknown): StoredImage {
+  const item = typeof value === 'object' && value !== null ? value as Partial<StoredImage> : {};
+  return {
+    imageMime: typeof item.imageMime === 'string' && /^image\/[a-z0-9.+-]+$/i.test(item.imageMime) ? item.imageMime : null,
+    imageVersion: typeof item.imageVersion === 'number' && Number.isFinite(item.imageVersion) ? Math.max(0, Math.floor(item.imageVersion)) : 0,
+  };
+}
+
+function withImage(config: StoredConfig, target: WallpaperTarget, image: StoredImage, imageName: string | null): StoredConfig {
+  if (target === 'global') return {
+    ...config, ...image,
+    settings: normalizeSettings({ ...config.settings, enabled: imageName !== null, imageName }),
+  };
+  return {
+    ...config,
+    regionImages: { ...config.regionImages, [target]: image },
+    settings: normalizeSettings({ ...config.settings, regions: {
+      ...config.settings.regions,
+      [target]: { ...config.settings.regions[target], imageName, source: imageName === null ? 'none' : 'custom' },
+    } }),
+  };
+}
 
 let storageReady: Promise<void> | undefined;
 
@@ -73,14 +111,11 @@ async function readConfig(): Promise<StoredConfig> {
     const parsed = JSON.parse(await readFile(CONFIG_FILE, 'utf8')) as Partial<StoredConfig>;
     return {
       settings: normalizeSettings(parsed.settings),
-      imageMime:
-        typeof parsed.imageMime === 'string' && /^image\/[a-z0-9.+-]+$/i.test(parsed.imageMime)
-          ? parsed.imageMime
-          : null,
-      imageVersion:
-        typeof parsed.imageVersion === 'number' && Number.isFinite(parsed.imageVersion)
-          ? Math.max(0, Math.floor(parsed.imageVersion))
-          : 0,
+      ...storedImage(parsed),
+      regionImages: {
+        settings: storedImage(parsed.regionImages?.settings),
+        sidebar: storedImage(parsed.regionImages?.sidebar),
+      },
     };
   } catch (error) {
     if (errorCode(error) === 'ENOENT') return { ...DEFAULT_CONFIG, settings: { ...DEFAULT_SETTINGS } };
@@ -96,10 +131,10 @@ async function writeConfig(config: StoredConfig): Promise<void> {
   });
 }
 
-async function imageExists(): Promise<boolean> {
+async function imageExists(target: WallpaperTarget): Promise<boolean> {
   await ensureStorageReady();
   try {
-    return (await stat(IMAGE_FILE)).isFile();
+    return (await stat(imageFile(target))).isFile();
   } catch (error) {
     if (errorCode(error) === 'ENOENT') return false;
     throw error;
@@ -107,14 +142,21 @@ async function imageExists(): Promise<boolean> {
 }
 
 async function toClientState(config: StoredConfig): Promise<ClientState> {
-  const hasImage = config.settings.imageName !== null && config.imageMime !== null && (await imageExists());
+  const state = async (target: WallpaperTarget): Promise<ImageState> => {
+    const image = target === 'global' ? config : config.regionImages[target];
+    const settings = target === 'global' ? config.settings : config.settings.regions[target];
+    const hasImage = settings.imageName !== null && image.imageMime !== null && await imageExists(target);
+    return { hasImage, imageUrl: hasImage ? `/api/dsh-wallpaper/image?region=${target}&v=${image.imageVersion}` : null };
+  };
+  const [global, settingsImage, sidebarImage] = await Promise.all([state('global'), state('settings'), state('sidebar')]);
+  const { hasImage } = global;
   const settings = hasImage
     ? config.settings
     : normalizeSettings({ ...config.settings, enabled: false, imageName: null });
   return {
     settings,
-    hasImage,
-    imageUrl: hasImage ? `/api/dsh-wallpaper/image?v=${config.imageVersion}` : null,
+    ...global,
+    regionImages: { settings: settingsImage, sidebar: sidebarImage },
   };
 }
 
@@ -165,13 +207,14 @@ function decodeFileName(value: string | string[] | undefined): string {
   }
 }
 
-async function writeImageAtomic(content: Buffer): Promise<void> {
+async function writeImageAtomic(content: Buffer, target: WallpaperTarget): Promise<void> {
   await ensureStorageReady();
-  await mkdir(dirname(IMAGE_FILE), { recursive: true, mode: 0o700 });
-  const temporary = `${IMAGE_FILE}.${process.pid}.${randomUUID()}.tmp`;
+  const file = imageFile(target);
+  await mkdir(dirname(file), { recursive: true, mode: 0o700 });
+  const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
   try {
     await writeFile(temporary, content, { flag: 'wx', mode: 0o600 });
-    await rename(temporary, IMAGE_FILE);
+    await rename(temporary, file);
   } finally {
     await rm(temporary, { force: true });
   }
@@ -213,7 +256,10 @@ export function apply(ctx: Context): void {
           const requested = normalizeSettings(body);
           const next: StoredConfig = {
             ...current,
-            settings: { ...requested, imageName: current.settings.imageName },
+            settings: { ...requested, imageName: current.settings.imageName, regions: {
+              settings: { ...requested.regions.settings, imageName: current.settings.regions.settings.imageName },
+              sidebar: { ...requested.regions.sidebar, imageName: current.settings.regions.sidebar.imageName },
+            } },
           };
           await writeConfig(next);
           return toClientState(next);
@@ -229,20 +275,23 @@ export function apply(ctx: Context): void {
     kind: 'exact',
     path: '/api/dsh-wallpaper/image',
     async handler(req, res) {
+      const target = wallpaperTarget(new URL(req.url ?? '/api/dsh-wallpaper/image', 'http://localhost').searchParams.get('region'));
+      if (target === undefined) return sendJson(res, 400, { error: 'invalid wallpaper region' });
       if (req.method === 'GET') {
         try {
           const config = await readConfig();
-          if (config.imageMime === null || !(await imageExists())) {
+          const image = target === 'global' ? config : config.regionImages[target];
+          if (image.imageMime === null || !(await imageExists(target))) {
             sendJson(res, 404, { error: 'wallpaper not found' });
             return;
           }
-          const info = await stat(IMAGE_FILE);
+          const info = await stat(imageFile(target));
           res.writeHead(200, {
-            'content-type': config.imageMime,
+            'content-type': image.imageMime,
             'content-length': info.size,
             'cache-control': 'private, max-age=31536000, immutable',
           });
-          const stream = createReadStream(IMAGE_FILE);
+          const stream = createReadStream(imageFile(target));
           stream.on('error', (error) => res.destroy(error));
           stream.pipe(res);
         } catch (error) {
@@ -264,17 +313,13 @@ export function apply(ctx: Context): void {
             return;
           }
           const state = await mutate(async () => {
-            await writeImageAtomic(content);
+            await writeImageAtomic(content, target);
             const current = await readConfig();
-            const next: StoredConfig = {
-              settings: normalizeSettings({
-                ...current.settings,
-                enabled: true,
-                imageName: decodeFileName(req.headers['x-dsh-wallpaper-filename']),
-              }),
+            const previous = target === 'global' ? current : current.regionImages[target];
+            const next = withImage(current, target, {
               imageMime: mime,
-              imageVersion: Math.max(Date.now(), current.imageVersion + 1),
-            };
+              imageVersion: Math.max(Date.now(), previous.imageVersion + 1),
+            }, decodeFileName(req.headers['x-dsh-wallpaper-filename']));
             await writeConfig(next);
             return toClientState(next);
           });
@@ -290,13 +335,13 @@ export function apply(ctx: Context): void {
       if (req.method === 'DELETE') {
         try {
           const state = await mutate(async () => {
-            await rm(IMAGE_FILE, { force: true });
+            await rm(imageFile(target), { force: true });
             const current = await readConfig();
-            const next: StoredConfig = {
-              settings: normalizeSettings({ ...current.settings, enabled: false, imageName: null }),
+            const previous = target === 'global' ? current : current.regionImages[target];
+            const next = withImage(current, target, {
               imageMime: null,
-              imageVersion: Math.max(Date.now(), current.imageVersion + 1),
-            };
+              imageVersion: Math.max(Date.now(), previous.imageVersion + 1),
+            }, null);
             await writeConfig(next);
             return toClientState(next);
           });

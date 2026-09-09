@@ -105,7 +105,7 @@ export function apply(ctx: Context, entryConfig: Config): void {
       const decision = await next();
       if (decision.kind !== 'enter') return decision;
       return {
-        kind: 'enter',
+        ...decision,
         messages: [...behaviorMessage, guardMessage(finalizationMessage(state.finalizingLimit)), ...decision.messages],
       };
     }
@@ -116,7 +116,7 @@ export function apply(ctx: Context, entryConfig: Config): void {
       const decision = await next();
       if (decision.kind !== 'enter') return decision;
       return {
-        kind: 'enter',
+        ...decision,
         messages: [...behaviorMessage, guardMessage(finalizationMessage(hardLimit)), ...decision.messages],
       };
     }
@@ -126,7 +126,7 @@ export function apply(ctx: Context, entryConfig: Config): void {
     const reminder = hardWarning ?? takeConvergenceReminder(state, settings, Date.now());
     const reminderMessages = reminder === undefined ? [] : [guardMessage(reminder)];
     if (behaviorMessage.length === 0 && reminderMessages.length === 0) return decision;
-    return { kind: 'enter', messages: [...behaviorMessage, ...reminderMessages, ...decision.messages] };
+    return { ...decision, messages: [...behaviorMessage, ...reminderMessages, ...decision.messages] };
   });
 
   ctx.on('tools/pre-execute', async (execution, next) => {

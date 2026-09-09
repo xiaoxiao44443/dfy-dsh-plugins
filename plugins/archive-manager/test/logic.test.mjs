@@ -175,6 +175,32 @@ test('listArchivedSessions 在标题和日志都不可用时显示友好占位�
   assert.equal(session.title, '未命名对话');
 });
 
+for (const compressed of [false, true]) {
+  test(`归档标题读取最新 V3 日志（压缩=${compressed}），忽略旧代及迁移临时文件`, async (t) => {
+    const root = makeRoot();
+    process.env.DSH_HOME = root;
+    t.after(async () => {
+      if (ORIGINAL_HOME === undefined) delete process.env.DSH_HOME;
+      else process.env.DSH_HOME = ORIGINAL_HOME;
+      await rm(root, { recursive: true, force: true });
+    });
+    const { archivedId } = await scaffold(root);
+    await rm(join(root, 'storages', 'session_projcache.json'));
+    const session = join(root, 'sessions', 'proj-a', archivedId);
+    const title = (text) => JSON.stringify({ type: 'session/title', data: { title: text } }) + '\n';
+    await writeFile(join(session, 'session.jsonl'), title('旧标题'));
+    await writeFile(join(session, 'session.v2.jsonl'), title('V2 标题'));
+    await writeFile(join(session, 'session.v9.jsonl.tmp'), title('未提交的标题'));
+    await writeFile(join(session, 'session.v03.jsonl'), title('非标准文件名'));
+    const filename = join(session, `session.v3.jsonl${compressed ? '.zstd' : ''}`);
+    const log = JSON.stringify({ type: 'session', version: 3, id: archivedId }) + '\n' + title('V3 最新标题');
+    await writeFile(filename, compressed ? zstdCompressSync(Buffer.from(log)) : log);
+    assert.equal((await listArchivedSessions())[0].title, 'V3 最新标题');
+    await writeFile(filename, 'broken');
+    assert.equal((await listArchivedSessions())[0].title, '未命名对话');
+  });
+}
+
 test('deleteArchivedSession：归档会话可删、活跃会话拒绝、非法 id 抛错', async (t) => {
   const root = makeRoot();
   process.env.DSH_HOME = root;

@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Context } from '@deepseek-ai/cordis';
+import { markAgentLoopRequest } from '@deepseek-ai/dsh-llm';
 
 import MediaBlocks, {
   decodeMediaImageRef,
   detectImageMediaType,
   encodeMediaImageRef,
   transformMediaContent,
+  mediaAdapterOptions,
 } from '../lib/index.js';
 
 const attachment = {
@@ -30,6 +32,22 @@ const options = {
   model: 'test',
   messages: [],
 };
+
+test('PTC media adapters see only the initiating agent catalog without changing provider wire tools', () => {
+  const agent = {};
+  const wire = markAgentLoopRequest({ ...options, tools: [{ name: 'run_code' }] });
+  const ctx = { agents: { currentInitiator: () => agent }, get: () => ({ schemas(scope) {
+    assert.equal(scope, agent);
+    return [{ name: 'run_code' }, { name: 'dfy_vision_analyze' }];
+  } }) };
+  const adapted = mediaAdapterOptions(wire, ctx);
+  assert.ok(adapted.tools.some(tool => tool.name === 'dfy_vision_analyze'));
+  assert.deepEqual(wire.tools, [{ name: 'run_code' }]);
+  const oneShot = { ...wire, purpose: 'vision' };
+  assert.equal(mediaAdapterOptions(oneShot, ctx), oneShot);
+  const restricted = mediaAdapterOptions(wire, { ...ctx, get: () => ({ schemas: () => [{ name: 'run_code' }] }) });
+  assert.equal(restricted.tools.some(tool => tool.name === 'dfy_vision_analyze'), false);
+});
 
 test('image references round-trip official attachment metadata', () => {
   assert.deepEqual(decodeMediaImageRef(encodeMediaImageRef(attachment)), attachment);

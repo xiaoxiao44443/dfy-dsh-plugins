@@ -1,6 +1,6 @@
 {
   "name": "dfy-dsh",
-  "version": "0.1.0+codex.20260821034036",
+  "version": "0.1.1",
   "description": "Connect Codex to the local DeepSeek Harness runtime, tools, and skills.",
   "author": {
     "name": "Saltfish"

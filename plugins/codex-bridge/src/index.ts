@@ -34,6 +34,8 @@ import {
   userMessageText,
   type RunMode,
 } from './runs.js';
+import type { AssistantStreamFrame } from './streams.js';
+import { ToolTurns } from './tool-turns.js';
 
 export const name = 'codex-bridge';
 export const inject = ['agents', 'agentPresets', 'tools', 'skills', 'settings', 'webServer', 'workspaceRegistry'];
@@ -175,9 +177,13 @@ function submissionView(snapshot: ReturnType<RunTracker['snapshot']>, deduplicat
 
 export function apply(ctx: Context, entryConfig: Config = {}): void {
   const activity = new Map<string, number>();
-  const nestedResults = new Map<string, { result?: unknown }>();
+  const nestedResults = new Map<string, { name: string; result?: unknown }>();
   const bridge: BridgeState = {};
   const runs = new RunTracker(() => ctx.agents.list());
+  const toolTurns = new ToolTurns(ctx);
+  // The older SDK has no declaration for this process-local V3 event.
+  const streamCtx = ctx as Context & { on(name: 'agent/assistant-stream', listener: (payload: { agent: Agent; frame: AssistantStreamFrame }) => void): unknown };
+  streamCtx.on('agent/assistant-stream', ({ agent, frame }) => runs.onAssistantStream(agent, frame));
   let generation = 0;
 
   for (const agent of ctx.agents.list()) activity.set(String(agent.id), agent.session.header.createdAt);
@@ -203,8 +209,8 @@ export function apply(ctx: Context, entryConfig: Config = {}): void {
     runs.onDisposed(agent);
   });
   ctx.on('tools/result', (exec, result) => {
-    const pending = nestedResults.get(String(exec.callId));
-    if (pending !== undefined) pending.result = result;
+    const pending = nestedResults.get(String(exec.rootCallId));
+    if (pending !== undefined && exec.callId !== exec.rootCallId && exec.name === pending.name) pending.result = result;
   });
 
   const requireAgent = (requestedId?: string): Agent => {
@@ -394,30 +400,33 @@ export function apply(ctx: Context, entryConfig: Config = {}): void {
       if (target === undefined) throw new Error(`Harness 工具不存在或当前会话不可用：${toolName}`);
       const callId = `codex-${randomUUID()}` as Parameters<typeof ctx.tools.execute>[0]['callId'];
       const runCode = schemas.find((schema) => schema.name === 'run_code');
-      if (runCode === undefined) {
-        return ctx.agents.withInitiator(agent, () => ctx.tools.execute({
-          callId,
-          name: toolName,
-          arguments: params.arguments ?? {},
-          agent,
-          signal: AbortSignal.timeout(60 * 60_000),
-        }));
-      }
-      const nestedCallId = `${String(callId)}:code:1`;
-      const pending: { result?: unknown } = {};
-      nestedResults.set(nestedCallId, pending);
-      try {
-        const outer = await ctx.agents.withInitiator(agent, () => ctx.tools.execute({
-          callId,
-          name: 'run_code',
-          arguments: codeModeToolArguments(toolName, params.arguments ?? {}, runCode),
-          agent,
-          signal: AbortSignal.timeout(60 * 60_000),
-        }));
-        return pending.result ?? outer;
-      } finally {
-        nestedResults.delete(nestedCallId);
-      }
+      return toolTurns.execute(agent, toolName, async (signal) => {
+        if (runCode === undefined) {
+          return ctx.agents.withInitiator(agent, () => ctx.tools.execute({
+            callId,
+            name: toolName,
+            arguments: params.arguments ?? {},
+            agent,
+            signal,
+          }));
+        }
+        // rootCallId is public on both code-mode and PTC executions. Child id
+        // spelling is not a contract (:code: became :ptc: in DSH 0.1.5).
+        const pending: { name: string; result?: unknown } = { name: toolName };
+        nestedResults.set(String(callId), pending);
+        try {
+          const outer = await ctx.agents.withInitiator(agent, () => ctx.tools.execute({
+            callId,
+            name: 'run_code',
+            arguments: codeModeToolArguments(toolName, params.arguments ?? {}, runCode),
+            agent,
+            signal,
+          }));
+          return pending.result ?? outer;
+        } finally {
+          nestedResults.delete(String(callId));
+        }
+      }, AbortSignal.timeout(60 * 60_000));
     }
     if (method === 'skills.list') {
       const snapshot = await ctx.skills.snapshot(options);
@@ -522,6 +531,7 @@ export function apply(ctx: Context, entryConfig: Config = {}): void {
 
   ctx.webServer.register(statusRoute);
   ctx.effect(() => () => {
+    toolTurns.dispose();
     runs.dispose();
     void stopBridge();
   }, 'dsh-codex-bridge: loopback server');

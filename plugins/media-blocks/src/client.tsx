@@ -1,5 +1,6 @@
 /** Client projection for @dfy-plugins/dsh-media-blocks. */
 import React from 'react';
+import * as Primitives from '@deepseek-ai/dsh-client-ui-primitives';
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment';
 import {
   RpcId,
@@ -8,12 +9,23 @@ import {
 import {
   IconCheckOutline16,
   IconCopyOutline16,
-  IconSparkle16,
   JsonBlock,
-  MessageText,
   Tooltip,
   writeClipboard,
 } from '@deepseek-ai/dsh-client-ui-primitives';
+
+// MessageText was replaced by projectUserText in the current Web Client.
+// Access optional exports through the namespace so either released SDK loads.
+const textPresentation = Primitives as unknown as {
+  projectUserText?: (text: string, referenceLabels?: readonly string[], skillNames?: readonly string[]) => React.ReactNode;
+  MessageText?: React.ComponentType<{ text: string }>;
+};
+
+function UserText({ text }: { text: string }): React.ReactElement {
+  if (textPresentation.projectUserText !== undefined) return <>{textPresentation.projectUserText(text, [], [])}</>;
+  if (textPresentation.MessageText !== undefined) return React.createElement(textPresentation.MessageText, { text });
+  return <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{text}</span>;
+}
 
 export const name = 'media-blocks';
 export const inject = ['slots', 'connection'];
@@ -68,11 +80,6 @@ interface MediaImageBlock {
   presentation?: { name?: string; caption?: string; renderer?: string };
 }
 
-interface InputProps {
-  /** Present on older DSH composer slots; alpha.5 renders this slot with no owner props. */
-  input?: { phase: 'plain' | 'adjudicating' | 'claimed' | 'submitting' };
-}
-
 interface ChatNodeProps {
   node: {
     seq: number;
@@ -83,6 +90,28 @@ interface ChatNodeProps {
 }
 
 type ImageLoader = (attachment: ImageAttachmentRef) => Promise<string>;
+
+interface FileAttachment {
+  attachmentId: string;
+  name: string;
+  bytes: number;
+}
+
+function fileAttachment(block: unknown): FileAttachment | undefined {
+  if (block === null || typeof block !== 'object' || !('type' in block) || block.type !== 'file' || !('attachment' in block)) return undefined;
+  const file = block.attachment as Partial<FileAttachment> | null;
+  return file !== null && typeof file === 'object' && typeof file.attachmentId === 'string'
+    && typeof file.name === 'string' && Number.isSafeInteger(file.bytes) && Number(file.bytes) >= 0
+    ? file as FileAttachment : undefined;
+}
+
+function fileSize(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) { size /= 1024; unit += 1; }
+  return `${Number(size.toFixed(unit === 0 ? 0 : 1))} ${units[unit]}`;
+}
 
 interface ImageLabels {
   image: string;
@@ -98,22 +127,14 @@ interface PromptEndpointResponse {
 }
 
 const STYLES = `
-.dsh-media-input { display:inline-flex; align-items:center; }
-.dsh-media-file { display:none; }
-.dsh-media-add { display:inline-flex; width:28px; height:28px; appearance:none; align-items:center; justify-content:center; padding:0; border:0; border-radius:8px; background:transparent; color:var(--dsw-alias-label-secondary, inherit); cursor:pointer; }
-.dsh-media-add:hover:not(:disabled) { background:var(--dsw-alias-bg-module-platform, rgba(127,127,127,.1)); color:var(--dsw-alias-label-primary, inherit); }
-.dsh-media-add:focus-visible { outline:2px solid var(--dsw-alias-brand-primary, #298df8); outline-offset:1px; }
-.dsh-media-add:disabled { cursor:default; opacity:.4; }
-@container (width <= 540px) {
-  [data-composer-card]
-    > div:has(> div > [data-slot="conversation.input.left"] .dsh-media-input)
-    > div
-    > div:has(> [data-slot="conversation.input.plan"])
-    button:has(> span:first-child[aria-hidden=true])
-    > span:nth-of-type(2):not([aria-hidden]) { display:none; }
-}
 .dsh-media-user-row { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
 .dsh-media-user-stack { display:flex; min-width:0; max-width:min(525px,82%); flex-direction:column; align-items:flex-end; gap:8px; }
+.dsh-media-files { display:flex; max-width:100%; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.dsh-media-file-card { display:flex; align-items:center; gap:10px; min-width:0; max-width:280px; padding:10px 12px; border:1px solid var(--dsw-alias-border-l2-darkmode-thin, rgba(127,127,127,.2)); border-radius:12px; background:var(--dsw-alias-interactive-bg-hover, rgba(127,127,127,.07)); }
+.dsh-media-file-icon { width:24px; height:24px; flex:none; color:var(--dsw-alias-label-secondary); }
+.dsh-media-file-copy { display:flex; min-width:0; flex-direction:column; gap:2px; }
+.dsh-media-file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+.dsh-media-file-size { font-size:12px; color:var(--dsw-alias-label-tertiary); }
 .dsh-media-user-bubble { max-width:100%; padding:10px 16px; border-radius:22px; background:var(--dsw-specific-bubble); color:var(--dsw-alias-label-primary); font-size:16px; line-height:24px; }
 .dsh-media-user-actions { display:flex; align-items:center; justify-content:flex-end; gap:4px; min-height:20px; color:var(--dsw-alias-label-tertiary); font-size:12px; line-height:18px; }
 .dsh-media-user-action { display:inline-flex; width:24px; height:24px; appearance:none; align-items:center; justify-content:center; padding:0; border:0; border-radius:6px; background:transparent; color:inherit; cursor:pointer; }
@@ -157,48 +178,6 @@ async function jsonResponse<T>(response: Response): Promise<T> {
   } catch {
     throw new Error(`HTTP ${String(response.status)} 返回无效 JSON`);
   }
-}
-
-function MediaImageButton({ input }: InputProps): React.ReactElement {
-  const fileRef = React.useRef<HTMLInputElement>(null);
-  const locked = input?.phase === 'adjudicating' || input?.phase === 'submitting';
-  const add = (files: readonly File[]): void => {
-    if (files.length === 0) return;
-    const transfer = new DataTransfer();
-    for (const file of files) transfer.items.add(file);
-    document.dispatchEvent(new DragEvent('drop', {
-      bubbles: true,
-      cancelable: true,
-      dataTransfer: transfer,
-    }));
-  };
-  return (
-    <span className="dsh-media-input">
-      <input
-        ref={fileRef}
-        className="dsh-media-file"
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        multiple
-        tabIndex={-1}
-        onChange={(event) => {
-          add(Array.from(event.currentTarget.files ?? []));
-          event.currentTarget.value = '';
-        }}
-      />
-      <Tooltip label="添加图片" side="top" delayMs={500}>
-        <button
-          type="button"
-          className="dsh-media-add"
-          aria-label="添加图片"
-          disabled={locked}
-          onClick={() => fileRef.current?.click()}
-        >
-          <IconSparkle16 size={16} />
-        </button>
-      </Tooltip>
-    </span>
-  );
 }
 
 const resourceUrls = new Map<string, Promise<string>>();
@@ -303,6 +282,7 @@ function UserMediaNode({ node, loadImage, t }: ChatNodeProps): React.ReactElemen
   const [copied, setCopied] = React.useState(false);
   const texts: string[] = [];
   const images: { attachment: ImageAttachmentRef }[] = [];
+  const files: FileAttachment[] = [];
   const refs = new Map<string, string>();
   const rest: unknown[] = [];
   for (const block of node.data.content) {
@@ -314,10 +294,13 @@ function UserMediaNode({ node, loadImage, t }: ChatNodeProps): React.ReactElemen
       refs.set(String(block.resource.attachment.attachmentId), block.resource.ref);
     } else if (typeof block === 'object' && block !== null && !Array.isArray(block)
       && (block as { type?: unknown }).type === 'image'
-      && typeof (block as { attachment?: unknown }).attachment === 'object') {
+      && typeof (block as { attachment?: unknown }).attachment === 'object'
+      && (block as { attachment?: unknown }).attachment !== null) {
       images.push({ attachment: (block as { attachment: ImageAttachmentRef }).attachment });
     } else {
-      rest.push(block);
+      const file = fileAttachment(block);
+      if (file !== undefined) files.push(file);
+      else rest.push(block);
     }
   }
   const text = texts.join('');
@@ -346,9 +329,18 @@ function UserMediaNode({ node, loadImage, t }: ChatNodeProps): React.ReactElemen
     <div className="dsh-media-user-row" data-time-hover-root>
       <div className="dsh-media-user-stack">
         <MediaGallery images={images} load={loader} labels={labels} />
+        {files.length > 0 && <div className="dsh-media-files" data-message-attachments>
+          {files.map((file, index) => <span className="dsh-media-file-card" title={file.name} key={`${file.attachmentId}:${index}`}>
+            <svg className="dsh-media-file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5Z" />
+              <path d="M14 3v5h5M8 13h8M8 17h5" />
+            </svg>
+            <span className="dsh-media-file-copy"><span className="dsh-media-file-name">{file.name}</span><span className="dsh-media-file-size">{fileSize(file.bytes)}</span></span>
+          </span>)}
+        </div>}
         {(text !== '' || rest.length > 0) && (
           <div className="dsh-media-user-bubble">
-            <MessageText text={text} />
+            <UserText text={text} />
             {rest.map((block, index) => (
               <JsonBlock
                 key={index}
@@ -405,11 +397,6 @@ export function apply(ctx: ClientCtx): void {
     for (const pending of resourceUrls.values()) void pending.then((url) => URL.revokeObjectURL(url));
     resourceUrls.clear();
   }, 'dsh-media-blocks: release object URLs');
-  ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
-    name: 'conversation.input.left',
-    id: 'dfy-media-image',
-    order: 100,
-  }, (props: InputProps) => <MediaImageButton {...props} />));
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
     name: 'conversation.chat.node',
     key: 'user',

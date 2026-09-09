@@ -23,6 +23,7 @@ import type { IncomingMessage } from 'node:http';
 import { detectImageMediaType } from '@dfy-plugins/image-protocol';
 
 import { decodeMediaImageRef, encodeMediaImageRef } from './reference.js';
+import { installNativePromptBridge, type NativeController, type NativePromptDependencies } from './native-prompt.js';
 
 export { decodeMediaImageRef, encodeMediaImageRef } from './reference.js';
 export { detectImageMediaType } from '@dfy-plugins/image-protocol';
@@ -229,6 +230,15 @@ function hasMediaBlock(content: readonly ContentBlock[]): boolean {
     || (block.type === 'tool-result' && hasMediaBlock(block.content)));
 }
 
+/** PTC hides child tools on the model wire; reference adapters need the scoped catalog. */
+export function mediaAdapterOptions(options: GenerateOptions, ctx: Pick<Context, 'agents' | 'get'>): GenerateOptions {
+  if (!isAgentLoopRequest(options) || !options.tools?.some((tool) => tool.name === 'run_code')) return options;
+  const agent = ctx.agents.currentInitiator();
+  const tools = ctx.get('tools') as { schemas?: (scope: unknown) => GenerateOptions['tools'] } | undefined;
+  if (agent === undefined || typeof tools?.schemas !== 'function') return options;
+  return { ...options, tools: tools.schemas(agent) };
+}
+
 export function transformMediaContent(
   content: readonly ContentBlock[],
   supportsImages: boolean,
@@ -332,6 +342,18 @@ export default class MediaBlocks extends Service {
       ...(lastPrompt === undefined ? {} : { lastPrompt }),
     });
 
+    // The new Host Remote replaces connection.api; intercept its public prompt
+    // method only after official validation identifies a text-only image route.
+    ctx.inject(['sessionController', 'fileUploads'], (nativeCtx) => {
+      const services = nativeCtx as unknown as { sessionController: NativeController; fileUploads: NativePromptDependencies['files'] };
+      nativeCtx.effect(() => installNativePromptBridge(services.sessionController, {
+        prepare: () => this.prepareReferenceAdapter('image'),
+        admit: (parts) => (ctx.attachments as unknown as { admitPromptContent: NativePromptDependencies['admit'] }).admitPromptContent(parts),
+        isLive: (agent) => ctx.agents.get(agent.id) === agent,
+        files: services.fileUploads,
+      }), 'dsh-media-blocks: native image prompt admission');
+    });
+
     // A durable media block is deliberately not a provider block. Resolve it
     // only at the final LLM boundary, then enter the adapter without recursively
     // dispatching the same waterfall listener.
@@ -344,9 +366,10 @@ export default class MediaBlocks extends Service {
       return (async function* () {
         const info = await runtime.resolveModelInfo(options.provider, options.model, options.signal);
         const supportsImages = info.inputModalities?.includes('image') === true;
+        const adapterOptions = mediaAdapterOptions(options, ctx);
         let changed = false;
         const messages: Message[] = options.messages.map((message) => {
-          const transformed = transformMediaContent(message.content, supportsImages, options, adapters);
+          const transformed = transformMediaContent(message.content, supportsImages, adapterOptions, adapters);
           changed ||= transformed.changed;
           return transformed.changed ? freezeMessage({ ...message, content: transformed.content }) : message;
         });

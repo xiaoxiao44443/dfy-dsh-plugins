@@ -24,7 +24,12 @@ export const WALLPAPER_POSITIONS = [
 
 export type WallpaperPosition = (typeof WALLPAPER_POSITIONS)[number];
 
-export interface WallpaperSettings {
+export const WALLPAPER_REGIONS = ['settings', 'sidebar'] as const;
+export type WallpaperRegion = (typeof WALLPAPER_REGIONS)[number];
+export type WallpaperTarget = 'global' | WallpaperRegion;
+export type WallpaperSource = 'none' | 'global' | 'custom';
+
+export interface WallpaperSurfaceSettings {
   enabled: boolean;
   imageName: string | null;
   mode: WallpaperMode;
@@ -38,7 +43,15 @@ export interface WallpaperSettings {
   surfaceOpacity: number;
 }
 
-export const DEFAULT_SETTINGS: WallpaperSettings = {
+export interface WallpaperRegionSettings extends Omit<WallpaperSurfaceSettings, 'enabled'> {
+  source: WallpaperSource;
+}
+
+export interface WallpaperSettings extends WallpaperSurfaceSettings {
+  regions: Record<WallpaperRegion, WallpaperRegionSettings>;
+}
+
+const DEFAULT_SURFACE_SETTINGS: WallpaperSurfaceSettings = {
   enabled: true,
   imageName: null,
   mode: 'cover',
@@ -50,6 +63,16 @@ export const DEFAULT_SETTINGS: WallpaperSettings = {
   maskColor: '#000000',
   maskOpacity: 0.18,
   surfaceOpacity: 0.56,
+};
+
+export function defaultRegionSettings(): WallpaperRegionSettings {
+  const { enabled: _enabled, ...appearance } = DEFAULT_SURFACE_SETTINGS;
+  return { ...appearance, source: 'none', imageOpacity: 0.45, blur: 8, maskOpacity: 0, surfaceOpacity: 0.95 };
+}
+
+export const DEFAULT_SETTINGS: WallpaperSettings = {
+  ...DEFAULT_SURFACE_SETTINGS,
+  regions: { settings: defaultRegionSettings(), sidebar: defaultRegionSettings() },
 };
 
 export interface WallpaperModeStyle {
@@ -86,7 +109,7 @@ function normalizeHexColor(value: unknown): string {
   return DEFAULT_SETTINGS.maskColor;
 }
 
-export function normalizeSettings(value: unknown): WallpaperSettings {
+function normalizeSurface(value: unknown, maxSurfaceOpacity = 0.95): WallpaperSurfaceSettings {
   const input = isRecord(value) ? value : {};
   const rawName = typeof input.imageName === 'string' ? input.imageName.trim() : '';
   return {
@@ -100,8 +123,25 @@ export function normalizeSettings(value: unknown): WallpaperSettings {
     blur: clamp(input.blur, DEFAULT_SETTINGS.blur, 0, 40),
     maskColor: normalizeHexColor(input.maskColor),
     maskOpacity: clamp(input.maskOpacity, DEFAULT_SETTINGS.maskOpacity, 0, 0.9),
-    surfaceOpacity: clamp(input.surfaceOpacity, DEFAULT_SETTINGS.surfaceOpacity, 0, 0.95),
+    surfaceOpacity: clamp(input.surfaceOpacity, DEFAULT_SETTINGS.surfaceOpacity, 0, maxSurfaceOpacity),
   };
+}
+
+export function normalizeSettings(value: unknown): WallpaperSettings {
+  const input = isRecord(value) ? value : {};
+  const regions = isRecord(input.regions) ? input.regions : {};
+  const region = (key: WallpaperRegion): WallpaperRegionSettings => {
+    const value = isRecord(regions[key]) ? regions[key] : {};
+    const { enabled: _enabled, ...appearance } = normalizeSurface({ ...defaultRegionSettings(), ...value }, 1);
+    return { ...appearance, source: value.source === 'global' || value.source === 'custom' ? value.source : 'none' };
+  };
+  return { ...normalizeSurface(input), regions: { settings: region('settings'), sidebar: region('sidebar') } };
+}
+
+/** Only these named image stores can be selected by an HTTP request. */
+export function wallpaperTarget(value: string | null): WallpaperTarget | undefined {
+  return value === null || value === 'global' ? 'global'
+    : value === 'settings' || value === 'sidebar' ? value : undefined;
 }
 
 function offsetAxis(anchor: string, offset: number, viewportUnit: 'vw' | 'vh'): string {
@@ -154,7 +194,7 @@ export function hexToRgb(value: string): [number, number, number] {
   ];
 }
 
-export function surfaceLayerAlphas(base: number): [number, number, number] {
-  const normalized = clamp(base, DEFAULT_SETTINGS.surfaceOpacity, 0, 0.95);
-  return [normalized, Math.min(0.97, normalized + 0.1), Math.min(0.99, normalized + 0.2)];
+export function surfaceLayerAlphas(base: number, maxOpacity = 0.95): [number, number, number] {
+  const normalized = clamp(base, DEFAULT_SETTINGS.surfaceOpacity, 0, maxOpacity);
+  return [normalized, Math.max(normalized, Math.min(0.97, normalized + 0.1)), Math.max(normalized, Math.min(0.99, normalized + 0.2))];
 }

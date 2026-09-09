@@ -1,4 +1,5 @@
 /** Session-owned, sandboxed HTML visualizations for DeepSeek Harness. */
+import { persistedSessionArtifactDirectory, sessionArtifactDirectory } from '@dfy-plugins/resource-core/session-storage';
 import type { Context } from '@deepseek-ai/cordis';
 import type {} from '@deepseek-ai/dsh-fs';
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver';
@@ -8,7 +9,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools';
 import type { GenericCallView, ToolRunContext } from '@deepseek-ai/dsh-tools';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import {
   injectVisualizationBridge,
@@ -118,12 +119,11 @@ function decodeHtml(file: WorkspaceFile): string {
 function sessionDirectory(ctx: Context, exec: ToolRunContext): { sessionId: string; directory: string } {
   const agent = exec.agent;
   if (agent === undefined) throw new Error('visualization rendering requires an active DSH session');
-  const location = ctx.sessionPersistence.locate(agent.session.header);
-  if (location === undefined) {
+  const directory = sessionArtifactDirectory(ctx.sessionPersistence, agent.session.header);
+  if (directory === undefined) {
     throw new Error('the configured session persistence backend does not expose a session-owned artifact directory');
   }
-  if (!isAbsolute(location.path)) throw new Error('the session persistence backend returned a non-absolute location');
-  return { sessionId: String(agent.id), directory: dirname(location.path) };
+  return { sessionId: String(agent.id), directory };
 }
 
 async function publishVisualization(
@@ -331,12 +331,8 @@ async function persistedSessionDirectory(
 ): Promise<string | undefined> {
   const remembered = rememberedSessionDirs.get(sessionId);
   if (remembered !== undefined) return remembered;
-  const headers = await ctx.sessionPersistence.list(signal);
-  const header = headers.find((candidate) => String(candidate.id) === sessionId);
-  if (header === undefined) return undefined;
-  const location = ctx.sessionPersistence.locate(header);
-  if (location === undefined || !isAbsolute(location.path)) return undefined;
-  const directory = dirname(location.path);
+  const directory = await persistedSessionArtifactDirectory(ctx.sessionPersistence, sessionId, signal);
+  if (directory === undefined) return undefined;
   rememberedSessionDirs.set(sessionId, directory);
   return directory;
 }

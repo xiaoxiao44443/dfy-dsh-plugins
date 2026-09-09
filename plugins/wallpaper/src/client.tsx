@@ -11,6 +11,7 @@ import {
 import {
   backgroundPositionWithOffset,
   DEFAULT_SETTINGS,
+  defaultRegionSettings,
   hexToRgb,
   modeStyle,
   normalizeSettings,
@@ -18,7 +19,12 @@ import {
   type WallpaperMode,
   type WallpaperPosition,
   type WallpaperSettings,
+  type WallpaperSurfaceSettings,
+  type WallpaperRegion,
+  type WallpaperRegionSettings,
+  type WallpaperTarget,
 } from './logic.js';
+import { REGIONS_ATTRIBUTE, REGION_STYLES, REGION_VARIABLES, regionVariables } from './regions.js';
 
 interface SlotEntryOptions {
   name: string;
@@ -83,6 +89,7 @@ const POSITION_OPTIONS: ReadonlyArray<{ value: WallpaperPosition; label: string 
 ];
 
 const STYLES = `
+${REGION_STYLES}
 body[${ACTIVE_ATTRIBUTE}] {
   isolation: isolate;
   --dsh-wallpaper-surface-rgb: 255 255 255;
@@ -190,10 +197,19 @@ body[data-ds-dark-theme] .dsh-wallpaper-floating {
 .dsh-wallpaper-close:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .dsh-wallpaper-floating-body { min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .dsh-wallpaper-settings { padding: 16px 18px 20px; color: inherit; }
+.dsh-wallpaper-targets { display:flex; gap:4px; padding:4px; margin-bottom:16px; border-radius:12px; background:var(--dsw-alias-bg-module-platform); }
+.dsh-wallpaper-targets button { flex:1; padding:9px 8px; border:0; border-radius:9px; background:transparent; color:var(--dsw-alias-label-secondary); font:inherit; font-size:13px; cursor:pointer; }
+.dsh-wallpaper-targets button[aria-pressed=true] { background:var(--dsw-alias-bg-layer-3); color:var(--dsw-alias-label-primary); box-shadow:0 1px 4px rgba(0,0,0,.08); font-weight:600; }
+.dsh-wallpaper-targets button:focus-visible { outline:2px solid var(--dsw-alias-state-business-primary); outline-offset:1px; }
+.dsh-wallpaper-region-source { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.dsh-wallpaper-region-source .dsh-wallpaper-source-hint { margin: 0; }
+.dsh-wallpaper-controls { min-width:0; margin:0; padding:0; border:0; }
+.dsh-wallpaper-controls:disabled { opacity:.6; }
 .dsh-wallpaper-launcher { padding: 20px; color: var(--dsw-alias-label-tertiary); font-size: 13px; }
 .dsh-wallpaper-card { border: 1px solid var(--dsw-alias-border-l2); border-radius: 16px; background: rgba(127,127,127,.06); overflow: hidden; }
 .dsh-wallpaper-source { display: grid; grid-template-columns: 138px minmax(0,1fr); gap: 14px; align-items: center; padding: 14px; }
 .dsh-wallpaper-preview { aspect-ratio: 16 / 10; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; background-color: rgba(127,127,127,.1); background-position: center; background-repeat: no-repeat; background-size: cover; box-shadow: inset 0 0 0 1px rgba(255,255,255,.03); }
+.dsh-wallpaper-settings[data-wallpaper-target='sidebar'] .dsh-wallpaper-preview { aspect-ratio: 2 / 3; }
 .dsh-wallpaper-preview[data-empty] { display: grid; place-items: center; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
 .dsh-wallpaper-source-copy { min-width: 0; }
 .dsh-wallpaper-source-name { overflow: hidden; margin-bottom: 4px; color: var(--dsw-alias-label-primary); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
@@ -237,14 +253,17 @@ body[data-ds-dark-theme] .dsh-wallpaper-floating {
 .dsh-wallpaper-offset-row { grid-template-columns: minmax(0,1fr) 64px; }
 .dsh-wallpaper-color-row { display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 10px; align-items: center; }
 .dsh-wallpaper-color { width: 42px; height: 34px; padding: 2px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 9px; background: transparent; cursor: pointer; }
-.dsh-wallpaper-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; }
+.dsh-wallpaper-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; }
+.dsh-wallpaper-footer .dsh-wallpaper-storage-note { flex: 1 1 200px; min-width: 0; }
+.dsh-wallpaper-footer .dsh-wallpaper-button { flex: none; margin-left: auto; white-space: nowrap; }
 .dsh-wallpaper-storage-note { color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 17px; }
 @media (max-width: 680px) {
   .dsh-wallpaper-floating { border-radius: 15px; }
   .dsh-wallpaper-source { grid-template-columns: 1fr; }
   .dsh-wallpaper-preview { max-width: 260px; }
   .dsh-wallpaper-grid { grid-template-columns: 1fr; }
-  .dsh-wallpaper-footer { align-items: flex-start; flex-direction: column; }
+  .dsh-wallpaper-footer { align-items: stretch; flex-direction: column; }
+  .dsh-wallpaper-footer .dsh-wallpaper-storage-note { flex-basis: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   .dsh-wallpaper-switch span, .dsh-wallpaper-switch span::after { transition: none; }
@@ -265,6 +284,7 @@ interface WallpaperSnapshot {
   settings: WallpaperSettings;
   hasImage: boolean;
   previewUrl: string | null;
+  regionImages: Record<WallpaperRegion, string | null>;
   panelOpen: boolean;
   loading: boolean;
   error: string | null;
@@ -274,6 +294,7 @@ interface ApiState {
   settings: WallpaperSettings;
   hasImage: boolean;
   imageUrl: string | null;
+  regionImages: Record<WallpaperRegion, { hasImage: boolean; imageUrl: string | null }>;
 }
 
 async function readApiState(response: Response): Promise<ApiState> {
@@ -284,7 +305,11 @@ async function readApiState(response: Response): Promise<ApiState> {
   const settings = normalizeSettings(payload.settings);
   const imageUrl = typeof payload.imageUrl === 'string' ? payload.imageUrl : null;
   const hasImage = payload.hasImage === true && imageUrl !== null;
-  return { settings, hasImage, imageUrl: hasImage ? imageUrl : null };
+  const regionImage = (region: WallpaperRegion): { hasImage: boolean; imageUrl: string | null } => {
+    const image = payload.regionImages?.[region];
+    return { hasImage: image?.hasImage === true, imageUrl: image?.hasImage === true && typeof image.imageUrl === 'string' ? image.imageUrl : null };
+  };
+  return { settings, hasImage, imageUrl: hasImage ? imageUrl : null, regionImages: { settings: regionImage('settings'), sidebar: regionImage('sidebar') } };
 }
 
 async function validateImage(blob: Blob): Promise<void> {
@@ -308,6 +333,7 @@ function cssUrl(url: string): string {
 class WallpaperController {
   private settings = { ...DEFAULT_SETTINGS };
   private imageUrl: string | null = null;
+  private regionImages: Record<WallpaperRegion, string | null> = { settings: null, sidebar: null };
   private panelOpen = false;
   private mounted = false;
   private disposed = false;
@@ -322,6 +348,7 @@ class WallpaperController {
     settings: this.settings,
     hasImage: false,
     previewUrl: null,
+    regionImages: this.regionImages,
     panelOpen: false,
     loading: true,
     error: null,
@@ -341,6 +368,7 @@ class WallpaperController {
 
     document.querySelectorAll(`[data-dsh-wallpaper-owner='${OWNER}']`).forEach((node) => node.remove());
     document.body.removeAttribute(ACTIVE_ATTRIBUTE);
+    document.body.removeAttribute(REGIONS_ATTRIBUTE);
 
     const media = document.createElement('div');
     media.dataset.dshWallpaperOwner = OWNER;
@@ -376,6 +404,7 @@ class WallpaperController {
       void this.queuePersist(this.settings);
     }
     this.imageUrl = null;
+    this.regionImages = { settings: null, sidebar: null };
     this.panelOpen = false;
     this.panelRoot?.unmount();
     this.mediaLayer?.remove();
@@ -386,7 +415,8 @@ class WallpaperController {
     this.panelHost = null;
     this.panelRoot = null;
     document.body.removeAttribute(ACTIVE_ATTRIBUTE);
-    for (const variable of BODY_VARIABLES) document.body.style.removeProperty(variable);
+    document.body.removeAttribute(REGIONS_ATTRIBUTE);
+    for (const variable of [...BODY_VARIABLES, ...REGION_VARIABLES]) document.body.style.removeProperty(variable);
     this.listeners.clear();
   }
 
@@ -416,9 +446,18 @@ class WallpaperController {
     this.publish({ error: null });
   }
 
-  resetAppearance(): void {
+  updateRegion(region: WallpaperRegion, patch: Partial<WallpaperRegionSettings>): void {
+    this.update({ regions: { ...this.settings.regions, [region]: { ...this.settings.regions[region], ...patch } } });
+  }
+
+  resetAppearance(target: WallpaperTarget): void {
+    if (target !== 'global') {
+      this.updateRegion(target, { ...defaultRegionSettings(), imageName: this.settings.regions[target].imageName });
+      return;
+    }
     this.settings = {
       ...DEFAULT_SETTINGS,
+      regions: this.settings.regions,
       enabled: this.settings.enabled,
       imageName: this.settings.imageName,
     };
@@ -427,7 +466,7 @@ class WallpaperController {
     this.publish({ error: null });
   }
 
-  async setImage(file: File): Promise<void> {
+  async setImage(file: File, target: WallpaperTarget): Promise<void> {
     if (!file.type.startsWith('image/')) {
       this.publish({ error: '请选择图片文件。' });
       return;
@@ -436,7 +475,7 @@ class WallpaperController {
     try {
       await validateImage(file);
       await this.flushPersist();
-      const response = await fetch(`${API_BASE}/image`, {
+      const response = await fetch(`${API_BASE}/image?region=${target}`, {
         method: 'PUT',
         headers: {
           'Content-Type': file.type,
@@ -446,8 +485,7 @@ class WallpaperController {
       });
       const state = await readApiState(response);
       if (this.disposed) return;
-      this.settings = state.settings;
-      this.imageUrl = state.imageUrl;
+      this.acceptState(state);
       this.applyVisualState();
       this.publish({ loading: false, error: null });
     } catch (error) {
@@ -455,14 +493,13 @@ class WallpaperController {
     }
   }
 
-  async removeImage(): Promise<void> {
+  async removeImage(target: WallpaperTarget): Promise<void> {
     this.publish({ loading: true, error: null });
     try {
       await this.flushPersist();
-      const state = await readApiState(await fetch(`${API_BASE}/image`, { method: 'DELETE' }));
+      const state = await readApiState(await fetch(`${API_BASE}/image?region=${target}`, { method: 'DELETE' }));
       if (this.disposed) return;
-      this.settings = state.settings;
-      this.imageUrl = state.imageUrl;
+      this.acceptState(state);
       this.applyVisualState();
       this.publish({ loading: false, error: null });
     } catch (error) {
@@ -480,8 +517,7 @@ class WallpaperController {
         await fetch(`${API_BASE}/state`, { method: 'GET', cache: 'no-store' }),
       );
       if (this.disposed) return;
-      this.settings = state.settings;
-      this.imageUrl = state.imageUrl;
+      this.acceptState(state);
       this.applyVisualState();
       this.publish({ loading: false, error: null });
     } catch (error) {
@@ -490,6 +526,12 @@ class WallpaperController {
         this.publish({ loading: false, error: `读取已保存的壁纸失败：${String(error)}` });
       }
     }
+  }
+
+  private acceptState(state: ApiState): void {
+    this.settings = state.settings;
+    this.imageUrl = state.imageUrl;
+    this.regionImages = { settings: state.regionImages.settings.imageUrl, sidebar: state.regionImages.sidebar.imageUrl };
   }
 
   private applyVisualState(): void {
@@ -521,6 +563,8 @@ class WallpaperController {
       );
     }
     body.toggleAttribute(ACTIVE_ATTRIBUTE, active);
+    for (const [name, value] of Object.entries(regionVariables(this.settings, this.imageUrl, this.regionImages))) body.style.setProperty(name, value);
+    body.setAttribute(REGIONS_ATTRIBUTE, '');
   }
 
   private schedulePersist(): void {
@@ -565,6 +609,7 @@ class WallpaperController {
       settings: this.settings,
       hasImage: this.imageUrl !== null,
       previewUrl: this.imageUrl,
+      regionImages: this.regionImages,
       panelOpen: this.panelOpen,
       loading: patch.loading ?? this.snapshot.loading,
       error: patch.error === undefined ? this.snapshot.error : patch.error,
@@ -733,7 +778,17 @@ function WallpaperSettingsSection({ controller }: { controller: WallpaperControl
     controller.getSnapshot,
     controller.getSnapshot,
   );
-  const { settings } = snapshot;
+  const [target, setTarget] = React.useState<WallpaperTarget>('global');
+  const settings = target === 'global' ? snapshot.settings : snapshot.settings.regions[target];
+  const source = target === 'global' ? 'custom' : snapshot.settings.regions[target].source;
+  const ownUrl = target === 'global' ? snapshot.previewUrl : snapshot.regionImages[target];
+  const previewUrl = source === 'global' ? snapshot.previewUrl : ownUrl;
+  const hasImage = ownUrl !== null;
+  const displayName = source === 'global' ? snapshot.settings.imageName : settings.imageName;
+  const update = (patch: Partial<WallpaperSurfaceSettings>): void => {
+    if (target === 'global') controller.update(patch);
+    else controller.updateRegion(target, patch);
+  };
   const fileRef = React.useRef<HTMLInputElement>(null);
   const mode = MODE_OPTIONS.find((option) => option.value === settings.mode) ?? MODE_OPTIONS[0];
 
@@ -743,208 +798,238 @@ function WallpaperSettingsSection({ controller }: { controller: WallpaperControl
   };
 
   return (
-    <div className="dsh-wallpaper-settings">
-      <section className="dsh-wallpaper-card">
-        <div className="dsh-wallpaper-source">
-          <div
-            className="dsh-wallpaper-preview"
-            data-empty={snapshot.previewUrl === null ? true : undefined}
-            style={
-              snapshot.previewUrl === null
-                ? undefined
-                : {
-                    backgroundImage: cssUrl(snapshot.previewUrl),
-                    backgroundSize: modeStyle(settings.mode).size,
-                    backgroundRepeat: modeStyle(settings.mode).repeat,
-                    backgroundPosition: settings.position,
-                  }
-            }
-          >
-            {snapshot.previewUrl === null ? '尚未选择图片' : null}
+    <div className="dsh-wallpaper-settings" data-wallpaper-target={target}>
+      <div className="dsh-wallpaper-targets" role="group" aria-label="背景调整区域">
+        {([['global', '主界面'], ['settings', '设置面板'], ['sidebar', '右侧 Sidebar']] as const).map(([value, label]) => (
+          <button type="button" key={value} aria-pressed={target === value} onClick={() => setTarget(value)}>{label}</button>
+        ))}
+      </div>
+      <fieldset className="dsh-wallpaper-controls" disabled={snapshot.loading}>
+        {target === 'global' ? null : (
+          <div className="dsh-wallpaper-region-source">
+            <WallpaperSelect
+              ariaLabel="背景来源"
+              value={source}
+              options={[
+                { value: 'none', label: '不使用壁纸（默认）' },
+                { value: 'custom', label: '使用独立图片' },
+                { value: 'global', label: '使用主界面图片' },
+              ]}
+              onChange={(source) => controller.updateRegion(target, { source })}
+            />
+            <p className="dsh-wallpaper-source-hint">只调整{target === 'settings' ? '应用设置弹窗' : '右侧 Sidebar（包括分栏和全屏）'}，不影响其他区域。</p>
           </div>
-          <div className="dsh-wallpaper-source-copy">
-            <div className="dsh-wallpaper-source-name">
-              {snapshot.loading ? '正在读取图片…' : settings.imageName ?? '选择一张本机图片'}
+        )}
+        <section className="dsh-wallpaper-card">
+          <div className="dsh-wallpaper-source">
+            <div
+              className="dsh-wallpaper-preview"
+              data-empty={previewUrl === null ? true : undefined}
+              style={
+                previewUrl === null
+                  ? undefined
+                  : {
+                      backgroundImage: cssUrl(previewUrl),
+                      backgroundSize: modeStyle(settings.mode).size,
+                      backgroundRepeat: modeStyle(settings.mode).repeat,
+                      backgroundPosition: settings.position,
+                    }
+              }
+            >
+              {previewUrl === null ? '尚未选择图片' : null}
             </div>
-            <p className="dsh-wallpaper-source-hint">
-              原图保存在 Harness 数据目录中，不会上传到外部网络。
-            </p>
-            <div className="dsh-wallpaper-actions">
-              <button
-                type="button"
-                className="dsh-wallpaper-button"
-                disabled={snapshot.loading}
-                onClick={chooseImage}
-              >
-                {snapshot.hasImage ? '更换图片' : '选择图片'}
-              </button>
-              {snapshot.hasImage ? (
+            <div className="dsh-wallpaper-source-copy">
+              <div className="dsh-wallpaper-source-name">
+                {snapshot.loading ? '正在读取图片…' : displayName ?? '选择一张本机图片'}
+              </div>
+              <p className="dsh-wallpaper-source-hint">
+                原图保存在 Harness 数据目录中，不会上传到外部网络。
+              </p>
+              <div className="dsh-wallpaper-actions">
                 <button
                   type="button"
                   className="dsh-wallpaper-button"
-                  data-danger
                   disabled={snapshot.loading}
-                  onClick={() => void controller.removeImage()}
+                  onClick={chooseImage}
                 >
-                  移除
+                  {target === 'global' ? hasImage ? '更换图片' : '选择图片' : hasImage ? '更换独立图片' : '选择独立图片'}
                 </button>
-              ) : null}
-            </div>
-            <input
-              ref={fileRef}
-              className="dsh-wallpaper-file"
-              type="file"
-              accept="image/*"
-              onChange={(event) => {
-                const file = event.currentTarget.files?.[0];
-                event.currentTarget.value = '';
-                if (file !== undefined) void controller.setImage(file);
-              }}
-            />
-          </div>
-        </div>
-
-        {snapshot.error === null ? null : (
-          <div className="dsh-wallpaper-error" role="alert">
-            {snapshot.error}
-          </div>
-        )}
-
-        <div className="dsh-wallpaper-enable">
-          <div className="dsh-wallpaper-enable-copy">
-            <div className="dsh-wallpaper-enable-title">启用壁纸</div>
-            <div className="dsh-wallpaper-enable-hint">关闭后保留图片和所有设置。</div>
-          </div>
-          <label className="dsh-wallpaper-switch">
-            <input
-              type="checkbox"
-              checked={settings.enabled && snapshot.hasImage}
-              disabled={!snapshot.hasImage || snapshot.loading}
-              onChange={(event) => controller.update({ enabled: event.currentTarget.checked })}
-              aria-label="启用壁纸"
-            />
-            <span />
-          </label>
-        </div>
-      </section>
-
-      <section className="dsh-wallpaper-section">
-        <div className="dsh-wallpaper-section-head">
-          <h4 className="dsh-wallpaper-section-title">图片布局</h4>
-          <span className="dsh-wallpaper-section-note">{mode.hint}</span>
-        </div>
-        <div className="dsh-wallpaper-grid">
-          <div className="dsh-wallpaper-field">
-            <span className="dsh-wallpaper-field-label">适应模式</span>
-            <WallpaperSelect
-              ariaLabel="适应模式"
-              value={settings.mode}
-              options={MODE_OPTIONS}
-              onChange={(mode) => controller.update({ mode })}
-            />
-          </div>
-          <div className="dsh-wallpaper-field">
-            <span className="dsh-wallpaper-field-label">图片位置</span>
-            <WallpaperSelect
-              ariaLabel="图片位置"
-              value={settings.position}
-              options={POSITION_OPTIONS}
-              onChange={(position) => controller.update({ position })}
-            />
-          </div>
-          <PercentOffsetField
-            label="横向偏移"
-            value={settings.offsetXPercent}
-            onChange={(offsetXPercent) => controller.update({ offsetXPercent })}
-          />
-          <PercentOffsetField
-            label="纵向偏移"
-            value={settings.offsetYPercent}
-            onChange={(offsetYPercent) => controller.update({ offsetYPercent })}
-          />
-        </div>
-      </section>
-
-      <section className="dsh-wallpaper-section">
-        <div className="dsh-wallpaper-section-head">
-          <h4 className="dsh-wallpaper-section-title">图片效果</h4>
-          <span className="dsh-wallpaper-section-note">实时预览</span>
-        </div>
-        <div className="dsh-wallpaper-grid">
-          <RangeField
-            label="图片不透明度"
-            min={0}
-            max={1}
-            step={0.01}
-            value={settings.imageOpacity}
-            display={`${Math.round(settings.imageOpacity * 100)}%`}
-            onChange={(imageOpacity) => controller.update({ imageOpacity })}
-          />
-          <RangeField
-            label="背景模糊"
-            min={0}
-            max={40}
-            step={1}
-            value={settings.blur}
-            display={`${Math.round(settings.blur)}px`}
-            onChange={(blur) => controller.update({ blur })}
-          />
-        </div>
-      </section>
-
-      <section className="dsh-wallpaper-section">
-        <div className="dsh-wallpaper-section-head">
-          <h4 className="dsh-wallpaper-section-title">遮罩与界面</h4>
-          <span className="dsh-wallpaper-section-note">保持文字可读性</span>
-        </div>
-        <div className="dsh-wallpaper-grid">
-          <label className="dsh-wallpaper-field">
-            <span className="dsh-wallpaper-field-label">
-              <span>遮罩颜色</span>
-              <span className="dsh-wallpaper-field-output">{settings.maskColor}</span>
-            </span>
-            <div className="dsh-wallpaper-color-row">
+                {hasImage && source !== 'global' ? (
+                  <button
+                    type="button"
+                    className="dsh-wallpaper-button"
+                    data-danger
+                    disabled={snapshot.loading}
+                    onClick={() => void controller.removeImage(target)}
+                  >
+                    移除
+                  </button>
+                ) : null}
+              </div>
               <input
-                className="dsh-wallpaper-color"
-                type="color"
-                value={settings.maskColor}
-                onChange={(event) => controller.update({ maskColor: event.currentTarget.value })}
-                aria-label="遮罩颜色"
+                ref={fileRef}
+                className="dsh-wallpaper-file"
+                type="file"
+                accept="image/*"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  event.currentTarget.value = '';
+                  if (file !== undefined) void controller.setImage(file, target);
+                }}
               />
-              <span className="dsh-wallpaper-source-hint" style={{ margin: 0 }}>
-                图片上方的统一颜色层
-              </span>
             </div>
-          </label>
-          <RangeField
-            label="遮罩强度"
-            min={0}
-            max={0.9}
-            step={0.01}
-            value={settings.maskOpacity}
-            display={`${Math.round(settings.maskOpacity * 100)}%`}
-            onChange={(maskOpacity) => controller.update({ maskOpacity })}
-          />
-          <RangeField
-            label="界面填充"
-            min={0}
-            max={0.95}
-            step={0.01}
-            value={settings.surfaceOpacity}
-            display={`${Math.round(settings.surfaceOpacity * 100)}%`}
-            onChange={(surfaceOpacity) => controller.update({ surfaceOpacity })}
-          />
-        </div>
-      </section>
+          </div>
 
-      <footer className="dsh-wallpaper-footer">
-        <span className="dsh-wallpaper-storage-note">
-          模糊只作用于背景图片，不会改变文字、菜单或弹窗的定位。
-        </span>
-        <button type="button" className="dsh-wallpaper-button" onClick={() => controller.resetAppearance()}>
-          恢复默认效果
-        </button>
-      </footer>
+          {snapshot.error === null ? null : (
+            <div className="dsh-wallpaper-error" role="alert">
+              {snapshot.error}
+            </div>
+          )}
+
+          {target === 'global' ? <div className="dsh-wallpaper-enable">
+            <div className="dsh-wallpaper-enable-copy">
+              <div className="dsh-wallpaper-enable-title">启用主界面壁纸</div>
+              <div className="dsh-wallpaper-enable-hint">关闭后保留图片和所有设置。</div>
+            </div>
+            <label className="dsh-wallpaper-switch">
+              <input
+                type="checkbox"
+                checked={snapshot.settings.enabled && hasImage}
+                disabled={!hasImage || snapshot.loading}
+                onChange={(event) => update({ enabled: event.currentTarget.checked })}
+                aria-label="启用主界面壁纸"
+              />
+              <span />
+            </label>
+          </div> : null}
+        </section>
+
+        <section className="dsh-wallpaper-section">
+          <div className="dsh-wallpaper-section-head">
+            <h4 className="dsh-wallpaper-section-title">图片布局</h4>
+            <span className="dsh-wallpaper-section-note">{mode.hint}</span>
+          </div>
+          <div className="dsh-wallpaper-grid">
+            <div className="dsh-wallpaper-field">
+              <span className="dsh-wallpaper-field-label">适应模式</span>
+              <WallpaperSelect
+                ariaLabel="适应模式"
+                value={settings.mode}
+                options={MODE_OPTIONS}
+                onChange={(mode) => update({ mode })}
+              />
+            </div>
+            <div className="dsh-wallpaper-field">
+              <span className="dsh-wallpaper-field-label">图片位置</span>
+              <WallpaperSelect
+                ariaLabel="图片位置"
+                value={settings.position}
+                options={POSITION_OPTIONS}
+                onChange={(position) => update({ position })}
+              />
+            </div>
+            <PercentOffsetField
+              label="横向偏移"
+              value={settings.offsetXPercent}
+              onChange={(offsetXPercent) => update({ offsetXPercent })}
+            />
+            <PercentOffsetField
+              label="纵向偏移"
+              value={settings.offsetYPercent}
+              onChange={(offsetYPercent) => update({ offsetYPercent })}
+            />
+          </div>
+        </section>
+
+        <section className="dsh-wallpaper-section">
+          <div className="dsh-wallpaper-section-head">
+            <h4 className="dsh-wallpaper-section-title">图片效果</h4>
+            <span className="dsh-wallpaper-section-note">实时预览</span>
+          </div>
+          <div className="dsh-wallpaper-grid">
+            <RangeField
+              label="图片不透明度"
+              min={0}
+              max={1}
+              step={0.01}
+              value={settings.imageOpacity}
+              display={`${Math.round(settings.imageOpacity * 100)}%`}
+              onChange={(imageOpacity) => update({ imageOpacity })}
+            />
+            <RangeField
+              label="背景模糊"
+              min={0}
+              max={40}
+              step={1}
+              value={settings.blur}
+              display={`${Math.round(settings.blur)}px`}
+              onChange={(blur) => update({ blur })}
+            />
+          </div>
+        </section>
+
+        <section className="dsh-wallpaper-section">
+          <div className="dsh-wallpaper-section-head">
+            <h4 className="dsh-wallpaper-section-title">遮罩与界面</h4>
+            <span className="dsh-wallpaper-section-note">保持文字可读性</span>
+          </div>
+          <div className="dsh-wallpaper-grid">
+            <label className="dsh-wallpaper-field">
+              <span className="dsh-wallpaper-field-label">
+                <span>遮罩颜色</span>
+                <span className="dsh-wallpaper-field-output">{settings.maskColor}</span>
+              </span>
+              <div className="dsh-wallpaper-color-row">
+                <input
+                  className="dsh-wallpaper-color"
+                  type="color"
+                  value={settings.maskColor}
+                  onChange={(event) => update({ maskColor: event.currentTarget.value })}
+                  aria-label="遮罩颜色"
+                />
+                <span className="dsh-wallpaper-source-hint" style={{ margin: 0 }}>
+                  图片上方的统一颜色层
+                </span>
+              </div>
+            </label>
+            <RangeField
+              label="遮罩强度"
+              min={0}
+              max={0.9}
+              step={0.01}
+              value={settings.maskOpacity}
+              display={`${Math.round(settings.maskOpacity * 100)}%`}
+              onChange={(maskOpacity) => update({ maskOpacity })}
+            />
+            {target === 'global' ? <RangeField
+              label="界面填充"
+              min={0}
+              max={0.95}
+              step={0.01}
+              value={settings.surfaceOpacity}
+              display={`${Math.round(settings.surfaceOpacity * 100)}%`}
+              onChange={(surfaceOpacity) => update({ surfaceOpacity })}
+            /> : <RangeField
+              label="背景不透明度"
+              min={0}
+              max={100}
+              step={1}
+              value={Math.round(settings.surfaceOpacity * 100)}
+              display={`${Math.round(settings.surfaceOpacity * 100)}%`}
+              onChange={(opacity) => update({ surfaceOpacity: opacity / 100 })}
+            />}
+          </div>
+        </section>
+
+        <footer className="dsh-wallpaper-footer">
+          <span className="dsh-wallpaper-storage-note">
+            模糊只作用于背景图片，不会改变文字、菜单或弹窗的定位。
+          </span>
+          <button type="button" className="dsh-wallpaper-button" onClick={() => controller.resetAppearance(target)}>
+            恢复默认效果
+          </button>
+        </footer>
+      </fieldset>
     </div>
   );
 }

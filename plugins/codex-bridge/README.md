@@ -29,6 +29,10 @@ Harness 工具仍会按原名动态暴露，方便 Codex 使用准确的参数 S
 
 新会话由 DSH Host 通过正式的 `agents.create` 接口创建，并附加到对应 Workspace；不是模拟前端点击，也不依赖 Electron。
 
+DSH `0.1.5-alpha.1` 要求工具审批处于打开的 turn 内。直接工具调用现在通过 Agent
+队列进入一个由 DSH 管理的轮次，在 pre-step 执行原工具管线，保留审批、拒绝和取消；
+仅有桥接请求时不会调用模型。会话正在运行时会等待队列中的轮次，取消排队请求不会删除其他输入。
+
 ## 消息执行协议
 
 `dsh_send_message` 的完成判据是该消息实际归属 turn 的持久化 `turn/end`，不是整个 Agent 暂时进入 `idle`。同一会话中的排队消息、steering 和别的 turn 因而不会串台。已经并入活动 turn 的 `steer` 无法再从该 turn 中单独剥离；取消它时会中止整个活动 turn，响应中的 `scope: "active_turn"` 会明确暴露这一范围。
@@ -41,6 +45,10 @@ Harness 工具仍会按原名动态暴露，方便 Codex 使用准确的参数 S
 4. 放弃执行时调用 `dsh_cancel_run`。`timeout` 表示取消已请求但在本次等待窗口内尚未观察到 turn 收尾，可继续用 `dsh_wait_run` 确认。
 
 `runId` 包含可恢复的消息身份。Host 插件在进程内保存更完整的运行元数据；若桥接插件重载，只要所属 Harness 会话仍处于活动状态，也能从 session event log 重建已进入 turn 的执行。`clientRequestId` 在同一会话内生成确定性的消息身份；重复提交相同内容会返回原执行，不会再次入队。
+
+新版通过 `agent/assistant-stream` 返回实时正文和推理增量，最终与持久化 stream 对齐，
+不重复返回已经收到的文字。游标保持不透明，并兼容旧两段游标。若临时输出被放弃，
+`outputReset: true` 要求接收方用 `latestText` 和本次 `reasoningDelta` 替换之前累计的输出。
 
 Codex 插件的唯一源码位于：
 

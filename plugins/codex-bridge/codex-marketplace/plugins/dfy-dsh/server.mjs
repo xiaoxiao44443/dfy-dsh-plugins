@@ -3,7 +3,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 const SERVER_NAME = 'dfy-dsh'
-const SERVER_VERSION = '0.1.0'
+const SERVER_VERSION = '0.1.1'
 const DISCOVERY_PATH = process.env.DSH_CODEX_BRIDGE_FILE
   || join(homedir(), '.saltfish', 'dfy-dsh', 'codex-bridge-endpoint.json')
 
@@ -63,7 +63,7 @@ const STATIC_TOOLS = [
   },
   {
     name: 'dsh_get_run',
-    description: 'Read one Harness run: status, output accumulated so far, text/reasoning deltas since cursor, tool calls/results, completion reason, and errors.',
+    description: 'Read one Harness run: status, output accumulated so far, text/reasoning deltas since cursor, tool calls/results, completion reason, and errors. When outputReset=true, replace previously collected output with latestText and the returned reasoningDelta instead of appending.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -77,7 +77,7 @@ const STATIC_TOOLS = [
   },
   {
     name: 'dsh_wait_run',
-    description: 'Long-poll one Harness run for at most 30 seconds. Returns immediately when cursor changes or the run is terminal; otherwise returns heartbeat=true at the deadline.',
+    description: 'Long-poll one Harness run for at most 30 seconds. Returns immediately when cursor changes or the run is terminal; otherwise returns heartbeat=true at the deadline. When outputReset=true, replace previously collected output with latestText and the returned reasoningDelta instead of appending.',
     inputSchema: {
       type: 'object',
       properties: {

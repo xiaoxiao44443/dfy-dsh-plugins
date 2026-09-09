@@ -20,7 +20,6 @@ test('visualize follows repository naming, lifecycle, storage and sandbox contra
   assert.match(host, /const TOOL_NAME = 'dfy_visualize_render'/);
   assert.match(host, /const SKILL_NAME = 'dfy-visualize'/);
   assert.match(host, /VISUALIZATION_API_PATH = '\/api\/dsh-visualize\/artifacts'/);
-  assert.match(host, /ctx\.sessionPersistence\.locate\(agent\.session\.header\)/);
   assert.match(host, /join\('artifacts', 'visualizations'\)/);
   assert.match(host, /await rename\(temporaryDirectory, finalDirectory\)/);
   assert.match(host, /presentationMeta:/);

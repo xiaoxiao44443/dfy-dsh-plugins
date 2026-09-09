@@ -1,4 +1,5 @@
 /** @dfy-plugins/dsh-vision Host half: isolated visual inference, tool, Skill, settings, and route discovery. */
+import { persistedSessionArtifactDirectory } from '@dfy-plugins/resource-core/session-storage';
 import type { Context } from '@deepseek-ai/cordis';
 import type { ImageAttachmentRef, ImageMediaType } from '@deepseek-ai/dsh-attachment';
 import { BlockAssembler, createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm';
@@ -26,7 +27,6 @@ import {
   readSessionImage,
   type ResolveSessionDirectory,
 } from '@dfy-plugins/image-protocol/session-storage';
-import { dirname, isAbsolute } from 'node:path';
 
 import {
   collectVisionImageSources,
@@ -218,12 +218,8 @@ async function persistedSessionDirectory(
 ): Promise<string | undefined> {
   const remembered = rememberedSessionDirs.get(sessionId);
   if (remembered !== undefined) return remembered;
-  const headers = await ctx.sessionPersistence.list(signal);
-  const header = headers.find((candidate) => String(candidate.id) === sessionId);
-  if (header === undefined) return undefined;
-  const location = ctx.sessionPersistence.locate(header);
-  if (location === undefined || !isAbsolute(location.path)) return undefined;
-  const directory = dirname(location.path);
+  const directory = await persistedSessionArtifactDirectory(ctx.sessionPersistence, sessionId, signal);
+  if (directory === undefined) return undefined;
   rememberedSessionDirs.set(sessionId, directory);
   return directory;
 }

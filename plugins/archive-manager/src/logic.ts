@@ -249,26 +249,42 @@ function titleFromJsonLines(lines: Iterable<string>): string | undefined {
 }
 
 async function titleFromSessionLog(sessionDirectory: string): Promise<string | undefined> {
+  let filenames: string[];
   try {
-    const buffer = await readFile(join(sessionDirectory, 'session.jsonl.zstd'));
-    const lines: string[] = [];
-    for (const frame of scanZstdFrames(buffer)) {
-      lines.push(
-        ...zstdDecompressSync(buffer.subarray(frame.start, frame.end))
-          .toString('utf8')
-          .split('\n'),
-      );
-    }
-    return titleFromJsonLines(lines);
-  } catch {
-    // 兼容显式关闭压缩的 DSH 会话，也容忍缺失或损坏的 zstd 日志。
-  }
-  try {
-    const plain = await readFile(join(sessionDirectory, 'session.jsonl'), 'utf8');
-    return titleFromJsonLines(plain.split('\n'));
+    const entries = await readdir(sessionDirectory, { withFileTypes: true });
+    const logs = entries.flatMap((entry) => {
+      const match = /^session(?:\.v([1-9]\d*))?\.jsonl(?:\.zstd)?$/.exec(entry.name);
+      return entry.isFile() && match !== null ? [{ name: entry.name, version: Number(match[1] ?? 0) }] : [];
+    });
+    const version = Math.max(...logs.map((log) => log.version));
+    // Only the highest committed generation is authoritative. A failed or
+    // title-less new log must never reveal a stale historical title.
+    filenames = logs.filter((log) => log.version === version)
+      .sort((a, b) => Number(b.name.endsWith('.zstd')) - Number(a.name.endsWith('.zstd')))
+      .map((log) => log.name);
   } catch {
     return undefined;
   }
+  for (const filename of filenames) {
+    try {
+      if (!filename.endsWith('.zstd')) {
+        return titleFromJsonLines((await readFile(join(sessionDirectory, filename), 'utf8')).split('\n'));
+      }
+      const buffer = await readFile(join(sessionDirectory, filename));
+      const lines: string[] = [];
+      for (const frame of scanZstdFrames(buffer)) {
+        lines.push(
+          ...zstdDecompressSync(buffer.subarray(frame.start, frame.end))
+            .toString('utf8')
+            .split('\n'),
+        );
+      }
+      return titleFromJsonLines(lines);
+    } catch {
+      // 兼容关闭压缩；同一代日志缺失或损坏时继续尝试另一种编码。
+    }
+  }
+  return undefined;
 }
 
 /**

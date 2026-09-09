@@ -13,5 +13,5 @@
     "forceConsistentCasingInFileNames": true,
     "noEmitOnError": true
   },
-  "include": ["src/index.ts", "src/logic.ts"]
+  "include": ["src/index.ts", "src/logic.ts", "src/regions.ts"]
 }

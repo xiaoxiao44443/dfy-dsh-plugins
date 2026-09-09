@@ -8,6 +8,7 @@
 - 带附件引用或工作区图片路径时调用 `POST /images/edits`。
 - 结果按内容哈希保存到当前 `session-*/artifacts/images/<sha256>`，归档永久删除会随会话目录一并清理；插件自己的 Tool 卡片可直接预览。
 - 用户上传和其他输入图片仍使用 Harness 官方 attachment。旧版生图 attachment 结果继续兼容回放。
+- 预览兼容 DSH 0.1.5 的 `meta.images`、旧版 `resultView` 和 PTC 子调用的图片结果文本；历史记录无需重新生图。
 - `@dfy-plugins/dsh-media-blocks` 是可选增强：安装时提供跨模型引用适配，未安装时生图和预览仍可独立工作。
 - API Key 独立保存在 `dsh-credentials`，不进入插件设置和模型上下文，也不会在设置页回显。
 

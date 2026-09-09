@@ -31,6 +31,27 @@ function append(agent, type, data, time = 1_000) {
   return event;
 }
 
+test('snapshot-only sessions support history, resumed run lookup and completed output', () => {
+  const agent = fakeAgent();
+  const message = createRunMessage('read newer session', agent.id, 'snapshot-fixture');
+  append(agent, 'turn/start', { turn: 1 });
+  append(agent, 'user/message', message);
+  append(agent, 'assistant/message', {
+    turn: 1, step: 1,
+    message: { id: 'assistant-fixture', role: 'assistant', content: [{ type: 'text', text: 'restored output' }] },
+  });
+  append(agent, 'turn/end', { turn: 1, reason: { kind: 'completed' } });
+  const events = agent.session.events;
+  delete agent.session.events;
+  agent.session.snapshotEvents = () => Object.freeze([...events]);
+  const tracker = new RunTracker(() => [agent]);
+  const history = tracker.readMessages(agent, 0, 20);
+  assert.ok(history.events.some((event) => event.role === 'assistant'));
+  const run = tracker.snapshot(runIdForMessageId(message.id));
+  assert.equal(run.status, 'completed');
+  assert.equal(run.latestText, 'restored output');
+});
+
 test('idempotency keys produce stable session-scoped message and reversible run ids', () => {
   const first = String(deterministicMessageId('session-a', 'request-1'));
   assert.equal(first, String(deterministicMessageId('session-a', 'request-1')));

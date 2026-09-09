@@ -14,17 +14,20 @@
 - [`@dfy-plugins/dsh-archive-manager`](plugins/archive-manager)：按项目查看已归档对话，支持取消归档和永久删除。
 - [`@dfy-plugins/dsh-appearance`](plugins/appearance)：在设置侧栏提供独立“外观”页，可在回复完成后折叠过程轨迹并调节对话字号。
 - [`@dfy-plugins/dsh-wallpaper`](plugins/wallpaper)：为 Harness 设置可配置图片背景，支持多种适应模式、模糊、遮罩和界面透明度。
-- [`@dfy-plugins/dsh-media-blocks`](plugins/media-blocks)：提供持久聊天媒体块和可扩展的多媒体展示；图片基础协议来自公共库，未来视频、网页等块仍可通过 `MediaResourceMap` 扩展。
+- [`@dfy-plugins/dsh-media-blocks`](plugins/media-blocks)：提供持久聊天媒体块和可扩展的多媒体展示；上传入口使用 DSH 自带的附件按钮，不再添加重复的图片按钮。图片基础协议来自公共库，未来视频、网页等块仍可通过 `MediaResourceMap` 扩展。
 - [`@dfy-plugins/dsh-vision`](plugins/vision)：通过独立视觉路由为文本模型分析图片，主会话只接收文字结果。
 - [`@dfy-plugins/dsh-image-generation`](plugins/image-generation)：通过按需 Skill 和固定工具调用独立图片模型，支持官方图片块、参考图编辑与 Tool 内图片预览；media-blocks 为可选增强。
 - [`@dfy-plugins/dsh-visualize`](plugins/visualize)：通过 `dfy-visualize` Skill 和 `dfy_visualize_render` 工具，将工作区 HTML 安全发布为对话内可交互的会话级可视化产物。
 - [`@dfy-plugins/dsh-codex-bridge`](plugins/codex-bridge)：通过本机鉴权 MCP 将 Harness 会话、工具与 Skills 提供给 Codex；DSH 端与 Codex 伴生插件分别安装。
 - [`@dfy-plugins/dsh-turn-guard`](plugins/turn-guard)：为单轮任务提供收敛提醒、重复调用检测和可配置的硬停止预算。
 
-当前 `0.1.1` 插件版本同时覆盖 DeepSeek Harness `0.1.1-rc.2` 与
-`0.1.2-alpha.1` / `0.1.2-alpha.2`。仓库开发依赖继续锁定最新稳定版
-`0.1.1-rc.2`；`alpha.2` 已通过独立依赖矩阵，`alpha.1` 按官方 tag
-对比验证，两版差异均通过能力检测处理。
+插件的 peer 范围已加入 `0.1.5-alpha.1`，但该版本的完整适配仍在进行，
+不能把安装成功或构建通过当作全部功能兼容。开发依赖保留 `0.1.1-rc.2`，
+目前已适配持久化快照、最新日志代读取、媒体文字渲染和 PTC 工具结果关联；
+桥接审批、实时流式输出、原生上传转接及 PTC 图片引用已完成代码修复和回归验证。
+真实模型调用和完整界面操作仍需在新版客户端验收。
+各插件的验证范围和未完成事项见[兼容检查记录](docs/compatibility-0.1.5-alpha.1.md)。
+本轮版本号及功能变化见 [DSH 0.1.5-alpha.1 配套更新说明](docs/releases/dsh-0.1.5-alpha.1.md)。
 
 所有发布包使用 `@dfy-plugins` npm scope；运行时 ID、API、CSS 和持久化目录按各自的兼容性要求命名，
 不会随包名做全局替换。新增或修改插件前请先阅读：
@@ -39,6 +42,16 @@ pnpm install
 pnpm check
 pnpm build
 ```
+
+针对准备发布的实际 DSH 运行环境，额外核对运行文件的具名导出（包括仅存在于前端 bundle 的模块）：
+
+```bash
+node scripts/check-runtime-exports.mjs ../dfy-dsh-desktop/build/harness-runtime
+node scripts/test-runtime-compat.mjs ../dfy-dsh-desktop/build/harness-runtime
+```
+
+前者核对具名导出，后者使用目标 DSH 的 AgentLoop、ToolRuntime、审批服务和 Session
+Controller 做内存集成测试。两者均不调用真实模型或读写用户对话；它们不替代界面交互及热更新验收。
 
 本地安装归档插件：
 

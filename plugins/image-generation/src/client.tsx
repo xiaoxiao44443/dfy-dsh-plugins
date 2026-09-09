@@ -251,21 +251,35 @@ function loadReferencedImage(ref: string): Promise<string> {
   return pending;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasImageDimensions(value: Record<string, unknown>): boolean {
+  return ['bytes', 'width', 'height'].every((key) => Number.isSafeInteger(value[key]) && Number(value[key]) > 0)
+    && typeof value.mediaType === 'string'
+    && ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(value.mediaType)
+    && (value.name === undefined || typeof value.name === 'string');
+}
+
+function isAttachment(value: unknown): value is ImageAttachmentRef {
+  return isRecord(value) && typeof value.attachmentId === 'string' && value.attachmentId.length > 0
+    && hasImageDimensions(value);
+}
+
+function isSessionImage(value: unknown): value is SessionImageRef {
+  return isRecord(value) && value.kind === 'dsh-session-image' && value.version === 1
+    && typeof value.sessionId === 'string' && value.sessionId.length > 0
+    && typeof value.imageId === 'string' && value.imageId.length > 0 && hasImageDimensions(value);
+}
+
 function isImageBlock(value: unknown): value is ImageBlock {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-  const block = value as Partial<ImageBlock>;
-  return block.type === 'image' && typeof block.attachment === 'object' && block.attachment !== null;
+  return isRecord(value) && value.type === 'image' && isAttachment(value.attachment);
 }
 
 function isSessionImageBlock(value: unknown): value is SessionImageBlock {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-  const block = value as Partial<SessionImageBlock>;
-  return block.type === 'dfy-session-image'
-    && block.version === 1
-    && typeof block.ref === 'string'
-    && typeof block.image === 'object'
-    && block.image !== null
-    && block.image.kind === 'dsh-session-image';
+  return isRecord(value) && value.type === 'dfy-session-image' && value.version === 1
+    && typeof value.ref === 'string' && value.ref.length > 0 && isSessionImage(value.image);
 }
 
 function ImageThumbnail({ image, load, labels, onOpen }: {
@@ -367,17 +381,45 @@ function toolPrompt(block: ToolCallViewProps['block']): string {
 }
 
 function resultImages(block: ToolCallViewProps['block']): DisplayImage[] {
-  if (!('kind' in block) || block.resultView?.card !== 'generic') return [];
+  if (!('kind' in block) || block.isError) return [];
   const images: DisplayImage[] = [];
-  for (const item of block.resultView.content ?? []) {
+  const add = (ref: string, name?: string): void => {
+    if (!images.some((image) => image.ref === ref)) images.push({ key: ref, ref, name });
+  };
+
+  // 0.1.5 sends durable metadata directly; it no longer projects resultView.
+  const meta = isRecord(block.meta) ? block.meta : undefined;
+  for (const item of Array.isArray(meta?.images) ? meta.images : []) {
+    if (!isRecord(item) || typeof item.ref !== 'string' || item.ref.length === 0) continue;
+    if (isSessionImage(item.image)) add(item.ref, item.image.name);
+    else if (isAttachment(item.attachment)) add(item.ref, item.attachment.name);
+  }
+  if (images.length > 0) return images;
+
+  // Keep old projected results and official image blocks replayable.
+  const legacy = (block as { resultView?: { card?: string; content?: unknown } }).resultView;
+  const content = legacy?.card === 'generic' && Array.isArray(legacy.content) ? legacy.content : block.content;
+  for (const item of content) {
     if (isSessionImageBlock(item)) {
-      images.push({ key: item.image.imageId, ref: item.ref, name: item.image.name });
+      add(item.ref, item.image.name);
     } else if (isImageBlock(item)) {
-      images.push({
-        key: String(item.attachment.attachmentId),
-        ref: encodeImageRef(item.attachment),
-        name: item.attachment.name,
-      });
+      add(encodeImageRef(item.attachment), item.attachment.name);
+    }
+  }
+  if (images.length > 0) return images;
+
+  // PTC child calls omit presentationMeta but retain our own output envelope.
+  // References stay opaque and still pass through the validated resource route.
+  for (const part of block.content) {
+    if (!isRecord(part) || part.type !== 'text' || typeof part.text !== 'string') continue;
+    const envelope = /^<image_generation_result\b[^>]*>([\s\S]*?)<\/image_generation_result>$/.exec(part.text.trim());
+    if (envelope === null) continue;
+    for (const match of envelope[1]!.matchAll(/<generated_image\b([^>]*)\/>/g)) {
+      const ref = /\bimage_ref="([A-Za-z0-9_-]{1,2048})"/.exec(match[1]!)?.[1];
+      if (ref === undefined) continue;
+      const name = /\bname="([^"]*)"/.exec(match[1]!)?.[1]
+        ?.replace(/&(quot|lt|gt|amp);/g, (entity) => ({ '&quot;': '"', '&lt;': '<', '&gt;': '>', '&amp;': '&' })[entity]!);
+      add(ref, name);
     }
   }
   return images;

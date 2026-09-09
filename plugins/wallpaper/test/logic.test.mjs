@@ -29,6 +29,7 @@ test('normalizeSettings supplies defaults and clamps numeric controls', () => {
     {
       enabled: false,
       imageName: 'sea.png',
+      regions: DEFAULT_SETTINGS.regions,
       mode: 'tile',
       position: 'right bottom',
       offsetXPercent: 100,
@@ -40,6 +41,27 @@ test('normalizeSettings supplies defaults and clamps numeric controls', () => {
       surfaceOpacity: 0,
     },
   );
+});
+
+test('old settings leave both new regions plain and region controls normalize independently', () => {
+  const old = normalizeSettings({ imageName: 'existing.png', imageOpacity: 0.8 });
+  assert.equal(old.regions.settings.source, 'none');
+  assert.equal(old.regions.sidebar.source, 'none');
+  assert.equal(old.regions.settings.surfaceOpacity, 0.95);
+  assert.equal(old.regions.sidebar.surfaceOpacity, 0.95);
+  assert.equal(old.imageName, 'existing.png');
+  const changed = normalizeSettings({ ...old, regions: {
+    settings: { source: 'custom', imageName: 'settings.png', blur: 400, imageOpacity: -3, maskColor: '#abc' },
+    sidebar: { source: 'global', blur: 3, imageOpacity: 0.7 },
+  } });
+  assert.equal(changed.imageOpacity, 0.8);
+  assert.equal(changed.regions.settings.blur, 40);
+  assert.equal(changed.regions.settings.imageOpacity, 0);
+  assert.equal(changed.regions.settings.maskColor, '#aabbcc');
+  assert.equal(changed.regions.sidebar.blur, 3);
+  assert.equal(changed.regions.sidebar.imageOpacity, 0.7);
+  assert.equal(old.regions.settings.blur, DEFAULT_SETTINGS.regions.settings.blur);
+  assert.deepEqual(normalizeSettings(JSON.parse(JSON.stringify(changed))), changed);
 });
 
 test('backgroundPositionWithOffset combines the anchor and viewport percentage tuning', () => {
@@ -69,4 +91,12 @@ test('color and surface helpers produce safe CSS values', () => {
   assert.deepEqual(hexToRgb('invalid'), [0, 0, 0]);
   assert.deepEqual(surfaceLayerAlphas(0.5), [0.5, 0.6, 0.7]);
   assert.deepEqual(surfaceLayerAlphas(0.95), [0.95, 0.97, 0.99]);
+  assert.deepEqual(surfaceLayerAlphas(1), [0.95, 0.97, 0.99]);
+  assert.deepEqual(surfaceLayerAlphas(1, 1), [1, 1, 1]);
+  const settings = normalizeSettings({ surfaceOpacity: 1, regions: {
+    settings: { surfaceOpacity: 1 }, sidebar: { surfaceOpacity: 0 },
+  } });
+  assert.equal(settings.surfaceOpacity, 0.95);
+  assert.equal(settings.regions.settings.surfaceOpacity, 1);
+  assert.equal(settings.regions.sidebar.surfaceOpacity, 0);
 });

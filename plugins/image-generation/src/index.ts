@@ -1,4 +1,5 @@
 /** Dedicated OpenAI-compatible image generation/editing route for DeepSeek Harness. */
+import { persistedSessionArtifactDirectory, sessionArtifactDirectory } from '@dfy-plugins/resource-core/session-storage';
 import type { Context } from '@deepseek-ai/cordis';
 import { credentialRef } from '@deepseek-ai/dsh-credentials';
 import type { ImageAttachmentRef, ImageMediaType } from '@deepseek-ai/dsh-attachment';
@@ -26,7 +27,6 @@ import {
   type ResolveSessionDirectory,
   type SessionImageOwner,
 } from '@dfy-plugins/image-protocol/session-storage';
-import { dirname, isAbsolute } from 'node:path';
 
 import {
   decodeImageBase64,
@@ -175,11 +175,11 @@ function currentSessionOwner(
 ): SessionImageOwner {
   const agent = exec.agent;
   if (agent === undefined) throw new Error('image generation requires an active DSH session');
-  const location = ctx.sessionPersistence.locate(agent.session.header);
-  if (location === undefined || !isAbsolute(location.path)) {
+  const directory = sessionArtifactDirectory(ctx.sessionPersistence, agent.session.header);
+  if (directory === undefined) {
     throw new Error('the configured session persistence backend does not expose a session-owned image directory');
   }
-  const owner = { sessionId: String(agent.id), directory: dirname(location.path) };
+  const owner = { sessionId: String(agent.id), directory };
   rememberedSessionDirs.set(owner.sessionId, owner.directory);
   return owner;
 }
@@ -192,12 +192,8 @@ async function persistedSessionDirectory(
 ): Promise<string | undefined> {
   const remembered = rememberedSessionDirs.get(sessionId);
   if (remembered !== undefined) return remembered;
-  const headers = await ctx.sessionPersistence.list(signal);
-  const header = headers.find((candidate) => String(candidate.id) === sessionId);
-  if (header === undefined) return undefined;
-  const location = ctx.sessionPersistence.locate(header);
-  if (location === undefined || !isAbsolute(location.path)) return undefined;
-  const directory = dirname(location.path);
+  const directory = await persistedSessionArtifactDirectory(ctx.sessionPersistence, sessionId, signal);
+  if (directory === undefined) return undefined;
   rememberedSessionDirs.set(sessionId, directory);
   return directory;
 }
