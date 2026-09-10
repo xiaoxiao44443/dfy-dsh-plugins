@@ -37,6 +37,14 @@
 
 ## 开发
 
+### 桌面端插件目录
+
+根目录的 [`catalog.json`](catalog.json) 供桌面端“DFY 插件”页读取。`version` 是目录格式版本，当前为 `1`；`plugins` 数组顺序即展示顺序，每项包含 `name`（npm 包名）、`title`（中文名称）、`category`（分类）、`description`（简介）、`repository`（该插件的 GitHub 目录或仓库地址），可选 `note`（安装后的配置提示）。卡片上的 GitHub 图标打开各自的 `repository` 地址。目录不保存 npm 版本号，桌面端会查询最新发布版本。
+
+新增插件时，先发布对应的 npm 包，再将条目加入目录并推送到 `main`。桌面端刷新即可发现，无需发布新版客户端。只列出可安装的 `@dfy-plugins/` 插件，公共依赖不进入目录。运行 `pnpm catalog:check` 校验字段、重复包名及对应插件包。
+
+发布准备、npm 首次上传和 GitHub Actions 可信发布见 [npm 发布指南](docs/npm-publishing.md)。
+
 ```bash
 pnpm install
 pnpm check

@@ -36,8 +36,14 @@ jobs:
       - name: Check types
         run: pnpm typecheck
 
+      - name: Check desktop catalog
+        run: pnpm catalog:check
+
       - name: Run tests
         run: pnpm test
 
       - name: Build plugins
         run: pnpm build
+
+      - name: Verify publishable archives
+        run: pnpm release:prepare

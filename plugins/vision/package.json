@@ -20,7 +20,8 @@
     "cordis.patch.yml"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "license": "MIT",
   "dependencies": {
@@ -90,5 +91,18 @@
         "@deepseek-ai/dsh-client-ui-settings-plugins"
       ]
     }
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiaoxiao44443/dfy-dsh-plugins.git",
+    "directory": "plugins/vision"
+  },
+  "homepage": "https://github.com/xiaoxiao44443/dfy-dsh-plugins#readme",
+  "bugs": {
+    "url": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin"
+  ]
 }

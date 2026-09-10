@@ -1,0 +1,76 @@
+name: Publish npm packages
+
+on:
+  push:
+    tags: ['npm-*']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish verified packages to npm (otherwise only validate)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm build
+      - run: pnpm release:prepare
+      - name: Prepare the target Harness runtime
+        run: |
+          mkdir -p "$RUNNER_TEMP/dfy-release-runtime"
+          pnpm --dir "$RUNNER_TEMP/dfy-release-runtime" add --ignore-scripts --config.node-linker=hoisted --config.minimum-release-age=0 @deepseek-ai/dsh@0.1.5-rc.1
+      - name: Validate runtime compatibility and isolated installation
+        run: |
+          node scripts/check-runtime-exports.mjs "$RUNNER_TEMP/dfy-release-runtime"
+          node scripts/test-runtime-compat.mjs "$RUNNER_TEMP/dfy-release-runtime"
+          pnpm release:test-install "$RUNNER_TEMP/dfy-release-runtime"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: npm-packages
+          path: release/npm/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: prepare
+    if: startsWith(github.ref, 'refs/tags/npm-') || (github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+      - name: Require an npm CLI with trusted publishing support
+        run: node -e 'const v = require("node:child_process").execFileSync("npm", ["--version"], {encoding:"utf8"}).trim().split(".").map(Number); if (v[0] < 11 || (v[0] === 11 && (v[1] < 5 || (v[1] === 5 && v[2] < 1)))) throw Error("npm >= 11.5.1 required");'
+      - uses: actions/download-artifact@v8
+        with:
+          name: npm-packages
+          path: release/npm/
+      - name: Publish checked archives through npm OIDC
+        run: node scripts/publish-release.mjs --publish

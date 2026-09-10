@@ -6,9 +6,14 @@
   "license": "MIT",
   "packageManager": "pnpm@11.19.0",
   "scripts": {
+    "catalog:check": "node scripts/check-catalog.mjs",
     "build": "pnpm --recursive run build",
     "typecheck": "pnpm --recursive --sort run build && pnpm --recursive run typecheck",
     "test": "pnpm --recursive run test",
-    "check": "pnpm run typecheck && pnpm run test"
+    "check": "pnpm run typecheck && pnpm run test",
+    "release:prepare": "node scripts/prepare-release.mjs",
+    "release:test-install": "node scripts/test-release-install.mjs",
+    "release:dry-run": "node scripts/publish-release.mjs",
+    "release:publish": "node scripts/publish-release.mjs --publish"
   }
 }

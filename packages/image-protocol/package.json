@@ -20,7 +20,8 @@
     "lib"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "license": "MIT",
   "scripts": {
@@ -40,5 +41,17 @@
     "@deepseek-ai/dsh-llm": "^0.1.1-rc.2",
     "@types/node": "^24.0.0",
     "typescript": "^5.5.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiaoxiao44443/dfy-dsh-plugins.git",
+    "directory": "packages/image-protocol"
+  },
+  "homepage": "https://github.com/xiaoxiao44443/dfy-dsh-plugins#readme",
+  "bugs": {
+    "url": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/issues"
+  },
+  "keywords": [
+    "deepseek-harness"
+  ]
 }
