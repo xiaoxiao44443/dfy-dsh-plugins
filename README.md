@@ -12,7 +12,7 @@
 ## 插件
 
 - [`@dfy-plugins/dsh-archive-manager`](plugins/archive-manager)：按项目查看已归档对话，支持取消归档和永久删除。
-- [`@dfy-plugins/dsh-appearance`](plugins/appearance)：在设置侧栏提供独立“外观”页，可在回复完成后折叠过程轨迹并调节对话字号。
+- [`@dfy-plugins/dsh-appearance`](plugins/appearance)：在设置侧栏提供独立“外观”页，每段回复出现时收起前面的过程轨迹，并可调节对话字号。
 - [`@dfy-plugins/dsh-wallpaper`](plugins/wallpaper)：为 Harness 设置可配置图片背景，支持多种适应模式、模糊、遮罩和界面透明度。
 - [`@dfy-plugins/dsh-media-blocks`](plugins/media-blocks)：提供持久聊天媒体块和可扩展的多媒体展示；上传入口使用 DSH 自带的附件按钮，不再添加重复的图片按钮。图片基础协议来自公共库，未来视频、网页等块仍可通过 `MediaResourceMap` 扩展。
 - [`@dfy-plugins/dsh-vision`](plugins/vision)：通过独立视觉路由为文本模型分析图片，主会话只接收文字结果。

@@ -1,4 +1,4 @@
-/** @dfy-plugins/dsh-appearance Client half: settings page and completed-turn folding. */
+/** @dfy-plugins/dsh-appearance Client half: settings page and per-response folding. */
 import React from 'react';
 
 import {
@@ -541,16 +541,31 @@ function installOfficialTranscriptCompatibility(
   };
 }
 
-function flowRowsBefore(tail: HTMLElement): HTMLElement[] {
-  const rows: HTMLElement[] = [];
-  let current = tail.previousElementSibling;
-  while (current instanceof HTMLElement) {
-    const kind = current.dataset.chatFlowKind;
-    if (kind === 'user' || kind === 'turn-tail') break;
-    if (kind !== undefined) rows.unshift(current);
-    current = current.previousElementSibling;
+function turnFlowGroups(): HTMLElement[][] {
+  const parents = new Set([...document.querySelectorAll<HTMLElement>('[data-chat-flow-kind]')]
+    .flatMap((row) => row.parentElement === null ? [] : [row.parentElement]));
+  const groups: HTMLElement[][] = [];
+  for (const parent of parents) {
+    let rows: HTMLElement[] = [];
+    let turn: string | undefined;
+    for (const row of parent.children) {
+      if (!(row instanceof HTMLElement)) continue;
+      const kind = row.dataset.chatFlowKind;
+      if (kind === undefined) continue;
+      const nextTurn = row.dataset.chatTurn;
+      if (kind === 'user' || kind === 'turn-tail'
+        || (turn !== undefined && nextTurn !== undefined && turn !== nextTurn)) {
+        if (rows.length > 0) groups.push(rows);
+        rows = [];
+        turn = undefined;
+      }
+      if (kind === 'user' || kind === 'turn-tail') continue;
+      rows.push(row);
+      if (nextTurn !== undefined) turn = nextTurn;
+    }
+    if (rows.length > 0) groups.push(rows);
   }
-  return rows;
+  return groups;
 }
 
 function removeFlowMarkers(rows: readonly HTMLElement[]): void {
@@ -587,8 +602,7 @@ function sameElements(left: readonly HTMLElement[], right: readonly HTMLElement[
 }
 
 function installArtifactPromotion(
-  turnId: number,
-  segmentId: number,
+  marker: string,
   outputRow: HTMLElement,
   artifactRows: readonly HTMLElement[],
 ): ArtifactPromotion | undefined {
@@ -596,7 +610,7 @@ function installArtifactPromotion(
   if (contents.length === 0) return undefined;
   const host = document.createElement('div');
   host.className = 'dsh-appearance-artifacts';
-  host.dataset.dshAppearanceArtifacts = `${String(turnId)}:${String(segmentId)}`;
+  host.dataset.dshAppearanceArtifacts = marker;
   outputRow.after(host);
   const moved = contents.map((content) => {
     const placeholder = document.createComment('dsh-artifact-content');
@@ -621,21 +635,17 @@ function installArtifactPromotion(
 
 function reconcileArtifactPromotion(
   promotions: Map<string, ArtifactPromotion>,
-  desired: Set<string>,
-  turnId: number,
-  segmentId: number,
+  marker: string,
   outputRow: HTMLElement,
   artifactRows: readonly HTMLElement[],
 ): void {
-  const marker = `${String(turnId)}:${String(segmentId)}`;
-  desired.add(marker);
   const current = promotions.get(marker);
   if (current !== undefined
     && current.host.isConnected
     && current.outputRow === outputRow
     && sameElements(current.artifactRows, artifactRows)) return;
   current?.dispose();
-  const next = installArtifactPromotion(turnId, segmentId, outputRow, artifactRows);
+  const next = installArtifactPromotion(marker, outputRow, artifactRows);
   if (next === undefined) promotions.delete(marker);
   else promotions.set(marker, next);
 }
@@ -678,16 +688,15 @@ function createDisclosureChevron(): SVGSVGElement {
 }
 
 function installSegmentDisclosure(
-  turnId: number,
-  segmentId: number,
+  marker: string,
   outputRow: HTMLElement,
   processRows: readonly HTMLElement[],
   toolCount: number,
   contextCount: number,
+  expandedOutputs: WeakSet<HTMLElement>,
 ): () => void {
   const outputReasoning = [...outputRow.querySelectorAll<HTMLElement>('[data-variant="think"]')];
   if (processRows.length === 0 && outputReasoning.length === 0) return () => {};
-  const marker = `${String(turnId)}:${String(segmentId)}`;
   const host = document.createElement('div');
   host.className = 'dsh-appearance-process-segment';
   host.dataset.dshAppearanceSegment = marker;
@@ -700,7 +709,7 @@ function installSegmentDisclosure(
   button.append(label, chevron);
   host.append(button);
   (processRows[0] ?? outputRow).before(host);
-  let expanded = false;
+  let expanded = expandedOutputs.has(outputRow);
   const update = (): void => {
     const collapsed = String(!expanded);
     for (const row of processRows) {
@@ -714,7 +723,12 @@ function installSegmentDisclosure(
     button.setAttribute('aria-expanded', String(expanded));
     label.textContent = segmentSummary(processRows, outputReasoning, toolCount, contextCount);
   };
-  const toggle = (): void => { expanded = !expanded; update(); };
+  const toggle = (): void => {
+    expanded = !expanded;
+    if (expanded) expandedOutputs.add(outputRow);
+    else expandedOutputs.delete(outputRow);
+    update();
+  };
   button.addEventListener('click', toggle);
   update();
   return () => {
@@ -724,58 +738,49 @@ function installSegmentDisclosure(
   };
 }
 
-function installCompletedTurnLayout(
-  tail: HTMLElement,
-  turnId: number,
-  collapseProcess: boolean,
-  promotions: Map<string, ArtifactPromotion>,
-  desiredPromotions: Set<string>,
-): () => void {
-  const rows = flowRowsBefore(tail);
+function planTurnLayout(rows: HTMLElement[], knownOutputs: WeakSet<HTMLElement>) {
   const nodes = rows.map((row) => ({
     kind: row.dataset.chatFlowKind ?? '',
     hasOutput: flowNodeHasOutput(row),
     hasArtifact: flowNodeHasArtifact(row),
   }));
-  const disposers = planCompletedProcessSegments(nodes).map((segment, segmentId) => {
-    const outputRow = rows[segment.outputIndex];
-    if (outputRow === undefined) return () => {};
+  nodes.forEach((node, index) => { if (node.hasOutput) knownOutputs.add(rows[index]!); });
+  return planCompletedProcessSegments(nodes).map((segment) => {
+    const outputRow = rows[segment.outputIndex]!;
     const processRows = segment.collapseIndices.flatMap((index) => rows[index] === undefined ? [] : [rows[index]!]);
     const artifactRows = segment.artifactIndices.flatMap((index) => rows[index] === undefined ? [] : [rows[index]!]);
-    reconcileArtifactPromotion(promotions, desiredPromotions, turnId, segmentId, outputRow, artifactRows);
-    const disposeDisclosure = collapseProcess
-      ? installSegmentDisclosure(
-        turnId,
-        segmentId,
-        outputRow,
-        processRows,
-        segment.toolCount,
-        segment.contextCount,
-      )
-      : () => {};
-    return disposeDisclosure;
+    return { ...segment, outputRow, processRows, artifactRows };
   });
-  return () => { for (const dispose of disposers.reverse()) dispose(); };
 }
 
-function mutationAddsCompletedTurnOrArtifact(mutation: MutationRecord): boolean {
+function mutationChangesTurnFlow(mutation: MutationRecord, knownOutputs: WeakSet<HTMLElement>): boolean {
   const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
   if (target?.closest('[data-dsh-appearance-artifacts], [data-dsh-appearance-segment]') != null) return false;
-  const selector = '[data-chat-flow-kind="turn-tail"], [data-turn-tail], '
+  if (mutation.type === 'attributes') return true;
+  // React can create the Assistant row before its first text delta. Observe
+  // that first visible output, but do not rebuild disclosures for every token.
+  const assistant = target?.closest<HTMLElement>('[data-chat-flow-kind="assistant-step"]');
+  if (assistant != null && !knownOutputs.has(assistant)
+    && target?.closest('[data-variant="think"]') == null && flowNodeHasOutput(assistant)) return true;
+  const selector = '[data-chat-flow-kind], [data-turn-tail], [data-variant="think"], '
     + ARTIFACT_OUTPUT + ', ' + ARTIFACT_CONTENT;
   return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => node instanceof Element
     && (node.matches(selector) || node.querySelector(selector) !== null));
 }
 
-function installCompletedTurnLayouts(
+function installTurnLayouts(
   scope: SettingsScope<Partial<AppearanceSettings>>,
   officialChatScope: SettingsScope<OfficialChatSettings>,
 ): () => void {
   let frame: number | undefined;
   let disclosureDisposers: Array<() => void> = [];
   const promotions = new Map<string, ArtifactPromotion>();
+  const expandedOutputs = new WeakSet<HTMLElement>();
+  const outputIds = new WeakMap<HTMLElement, number>();
+  let nextOutputId = 0;
+  let knownOutputs = new WeakSet<HTMLElement>();
   const observer = new MutationObserver((mutations) => {
-    if (!mutations.some(mutationAddsCompletedTurnOrArtifact)) return;
+    if (!mutations.some((mutation) => mutationChangesTurnFlow(mutation, knownOutputs))) return;
     if (frame !== undefined) return;
     frame = window.requestAnimationFrame(refresh);
   });
@@ -784,7 +789,23 @@ function installCompletedTurnLayouts(
     observer.disconnect();
     for (const dispose of disclosureDisposers.reverse()) dispose();
     disclosureDisposers = [];
-    const desiredPromotions = new Set<string>();
+    knownOutputs = new WeakSet<HTMLElement>();
+    const segments = turnFlowGroups().flatMap((rows) => planTurnLayout(rows, knownOutputs)).map((segment) => {
+      let id = outputIds.get(segment.outputRow);
+      if (id === undefined) {
+        id = nextOutputId++;
+        outputIds.set(segment.outputRow, id);
+      }
+      return { ...segment, marker: `output:${String(id)}` };
+    });
+    const desiredPromotions = new Set(segments.map(({ marker }) => marker));
+    // Restore old placements before promoting again: an artifact may first be
+    // the latest output and later belong after a newly streamed text response.
+    for (const [marker, promotion] of promotions) {
+      if (desiredPromotions.has(marker)) continue;
+      promotion.dispose();
+      promotions.delete(marker);
+    }
     const officialSnapshot = officialChatScope.getSnapshot();
     const officialTranscriptView = officialSnapshot.status === 'ready'
       ? officialSnapshot.value?.transcriptView
@@ -794,24 +815,19 @@ function installCompletedTurnLayouts(
         readSettings(scope).collapseCompletedProcess,
         officialTranscriptView,
       );
-    for (const marker of document.querySelectorAll<HTMLElement>('[data-turn-tail]')) {
-      const tail = marker.closest<HTMLElement>('[data-chat-flow-kind="turn-tail"]');
-      const turnId = Number(marker.dataset.turnTail);
-      if (tail === null || !Number.isSafeInteger(turnId)) continue;
-      disclosureDisposers.push(installCompletedTurnLayout(
-        tail,
-        turnId,
-        collapseProcess,
-        promotions,
-        desiredPromotions,
+    for (const segment of segments) {
+      reconcileArtifactPromotion(promotions, segment.marker, segment.outputRow, segment.artifactRows);
+      if (collapseProcess) disclosureDisposers.push(installSegmentDisclosure(
+        segment.marker, segment.outputRow, segment.processRows, segment.toolCount, segment.contextCount, expandedOutputs,
       ));
     }
-    for (const [marker, promotion] of promotions) {
-      if (desiredPromotions.has(marker)) continue;
-      promotion.dispose();
-      promotions.delete(marker);
-    }
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-chat-flow-kind', 'data-chat-turn', 'data-turn-tail'],
+    });
   };
   refresh();
   const scheduleRefresh = (): void => {
@@ -1067,8 +1083,8 @@ export function apply(ctx: ClientCtx): void {
     'dsh-appearance: disable built-in compact transcript',
   );
   ctx.effect(
-    () => installCompletedTurnLayouts(scope, officialChatScope),
-    'dsh-appearance: completed turn layouts',
+    () => installTurnLayouts(scope, officialChatScope),
+    'dsh-appearance: per-response layouts',
   );
   ctx.inject(['desktopContextMenu'], (menuCtx) => {
     menuCtx.effect(() => installFileLinkContextMenu(menuCtx), 'dsh-appearance: file link context menu');

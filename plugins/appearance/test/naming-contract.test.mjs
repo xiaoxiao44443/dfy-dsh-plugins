@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const pluginRoot = new URL('../', import.meta.url);
 
-test('appearance registers durable settings, a sidebar page, and completed-turn layouts', async () => {
+test('appearance registers durable settings, a sidebar page, and per-response layouts', async () => {
   const [pkg, patch, host, client] = await Promise.all([
     readFile(new URL('package.json', pluginRoot), 'utf8'),
     readFile(new URL('cordis.patch.yml', pluginRoot), 'utf8'),
@@ -17,7 +17,7 @@ test('appearance registers durable settings, a sidebar page, and completed-turn 
   assert.match(client, /name: 'settings\.section'/);
   assert.match(client, /id: 'appearance'/);
   assert.match(client, /label: '外观'/);
-  assert.match(client, /installCompletedTurnLayouts/);
+  assert.match(client, /installTurnLayouts/);
   assert.match(client, /\[data-turn-tail\]/);
   assert.match(client, /MutationObserver/);
   assert.doesNotMatch(client, /slots\.inject\('conversation\.chat\.turnTail'/);
