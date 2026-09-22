@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "plugins": [
+    {
+      "name": "@dfy-plugins/dsh-bundle",
+      "title": "DFY 插件组合包",
+      "category": "组合包",
+      "description": "一次安装 8 个 DFY 插件，统一更新；进入官方详情页可分别启停。",
+      "note": "包含以下单独插件，可选整包或按需安装。",
+      "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/bundle",
+      "includes": [
+        "@dfy-plugins/dsh-wallpaper", "@dfy-plugins/dsh-appearance",
+        "@dfy-plugins/dsh-archive-manager", "@dfy-plugins/dsh-media-blocks",
+        "@dfy-plugins/dsh-image-generation", "@dfy-plugins/dsh-visualize",
+        "@dfy-plugins/dsh-turn-guard", "@dfy-plugins/dsh-codex-bridge"
+      ]
+    },
+    {
+      "name": "@dfy-plugins/dsh-wallpaper",
+      "title": "壁纸",
+      "category": "界面",
+      "description": "为主界面、设置面板和右侧栏分别设置背景图片与显示效果。",
+      "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/wallpaper"
+    },
+    {
+      "name": "@dfy-plugins/dsh-appearance",
+      "title": "外观",
+      "category": "界面",
+      "description": "调整对话字号、过程轨迹折叠和本地文件的打开方式。",
+      "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/appearance"
+    },
+    {
+      "name": "@dfy-plugins/dsh-archive-manager",
+      "title": "归档管理",
+      "category": "对话",
+      "description": "按项目浏览归档对话，支持恢复和永久删除。",
+      "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/archive-manager"
+    },
+    {
+      "name": "@dfy-plugins/dsh-media-blocks",
+      "title": "媒体内容",
+      "category": "图片",
+      "description": "展示持久图片内容，并为视觉和生图插件提供媒体增强。",
+      "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/media-blocks"
+    },
+    {
+      "name": "@dfy-plugins/dsh-image-generation",
+      "title": "图像生成",
+      "category": "图片",
+      "description": "在对话中生成和编辑图片，支持参考图与结果预览。",
+      "note": "安装后需配置图片模型。",
+      "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/image-generation"
+    },
+    {
+      "name": "@dfy-plugins/dsh-visualize",
+      "title": "交互可视化",
+      "category": "工具",
+      "description": "将工作区 HTML 展示为对话内可交互的可视化内容。",
+      "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/visualize"
+    },
+    {
+      "name": "@dfy-plugins/dsh-turn-guard",
+      "title": "任务守卫",
+      "category": "工具",
+      "description": "提供任务收敛提醒、重复调用检测和单轮执行预算。",
+      "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/turn-guard"
+    },
+    {
+      "name": "@dfy-plugins/dsh-codex-bridge",
+      "title": "Codex 连接",
+      "category": "连接",
+      "description": "让 Codex 访问 Harness 的活动会话、工具与 Skills。",
+      "note": "Codex 端还需安装 DFY DSH 伴生插件。",
+      "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/codex-bridge"
+    }
+  ]
+}

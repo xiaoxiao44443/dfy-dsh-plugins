@@ -17,7 +17,7 @@ test('image generation keeps package, Cordis, API, settings, Tool and Skill ids 
   assert.equal(manifest.dependencies?.['@dfy-plugins/dsh-media-blocks'], undefined);
   assert.equal(manifest.peerDependenciesMeta?.['@dfy-plugins/dsh-media-blocks']?.optional, true);
   assert.match(patch, /id: image-generation\r?\n\s+name: '@dfy-plugins\/dsh-image-generation'/);
-  assert.match(host, /'dsh-image-generation' as SettingsNamespace/);
+  assert.match(host, /configureSettings\(ctx, 'image-generation', SETTINGS_NS\)/);
   assert.match(host, /baseUrl: z\.string\(\)\.default\(''\)/);
   assert.match(host, /model: z\.string\(\)\.default\(''\)/);
   assert.doesNotMatch(host, /apiKeyEnv/);
@@ -27,7 +27,7 @@ test('image generation keeps package, Cordis, API, settings, Tool and Skill ids 
   assert.doesNotMatch(host, /credentials\/updated/);
   assert.match(host, /'\/api\/dsh-image-generation\/status'/);
   assert.match(host, /'\/api\/dsh-image-generation\/resource'/);
-  assert.match(host, /'dfy-session-image'/);
+  assert.match(host, /'plugin:dfy-session-image'/);
   assert.match(host, /publishSessionImages/);
   assert.match(host, /sessionPersistence/);
   assert.match(host, /ctx\.attachments\.validateImage\(image\)/);

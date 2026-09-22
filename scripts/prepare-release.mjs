@@ -17,7 +17,7 @@ const ts = createRequire(join(root, 'plugins/media-blocks/package.json'))('types
 const packages = new Map();
 for (const group of ['packages', 'plugins']) {
   for (const entry of await readdir(join(root, group), { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
+    if (!entry.isDirectory() || (group === 'plugins' && entry.name === 'vision')) continue;
     const directory = `${group}/${entry.name}`;
     const manifest = JSON.parse(await readFile(join(root, directory, 'package.json'), 'utf8'));
     if (manifest.private) continue;
@@ -78,8 +78,8 @@ try {
     assert.equal(manifest.version, source.version);
     assert.ok(!JSON.stringify({ ...manifest.dependencies, ...manifest.optionalDependencies, ...manifest.peerDependencies }).includes('workspace:'), `${source.name}: unpublished workspace dependency`);
     for (const [name, range] of Object.entries(source.dependencies ?? {})) {
-      if (range !== 'workspace:^') continue;
-      assert.equal(manifest.dependencies[name], `^${packages.get(name).manifest.version}`, `${source.name}: incorrect packed version for ${name}`);
+      if (range !== 'workspace:^' && range !== 'workspace:*') continue;
+      assert.equal(manifest.dependencies[name], `${range === 'workspace:^' ? '^' : ''}${packages.get(name).manifest.version}`, `${source.name}: incorrect packed version for ${name}`);
     }
     for (const path of [manifest.main, manifest.types, manifest.dsh?.bundle?.patch, ...targets(manifest.exports)].filter(Boolean)) {
       const absolute = resolve(packageRoot, path);

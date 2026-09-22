@@ -1,6 +1,6 @@
 /** DSH Client half: settings card for the local Codex bridge. */
 import React from 'react';
-import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives';
+import { IconChevronDownOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 
 interface BridgeSettings {
   enabled?: boolean;
@@ -16,7 +16,7 @@ interface SettingsSnapshot<T> {
 interface SettingsScope<T> {
   getSnapshot(): SettingsSnapshot<T>;
   subscribe(listener: () => void): () => void;
-  set(field: string, value: unknown): Promise<void>;
+  set(field: string, value: unknown): Promise<boolean>;
 }
 
 interface SlotEntryOptions {
@@ -30,8 +30,8 @@ interface ClientCtx {
     inject(name: string, register: () => unknown): unknown;
     register(options: SlotEntryOptions, component: unknown): unknown;
   };
-  settingsScope: {
-    bind<T>(spec: { namespace: string }): SettingsScope<T>;
+  configForms: {
+    get<T>(entryId: string): SettingsScope<T>;
   };
 }
 
@@ -45,7 +45,7 @@ interface BridgeStatus {
 }
 
 export const name = 'codex-bridge';
-export const inject = ['slots', 'settingsScope'];
+export const inject = ['slots', 'configForms'];
 
 const STATUS_PATH = '/api/dsh-codex-bridge/status';
 const STYLE_ID = '@dfy-plugins/dsh-codex-bridge';
@@ -151,7 +151,7 @@ function BridgeCard({ scope }: { scope: SettingsScope<BridgeSettings> }): React.
           <span className="dsh-codex-description">让 Codex 使用当前 Harness 会话的工具和 Skills。</span>
         </span>
         <span className="dsh-codex-badge">{enabled ? '已启用' : '已关闭'}</span>
-        <IconChevronDownOutline14 className="dsh-codex-chevron" data-open={open || undefined} size={16} />
+        <IconChevronDownOutlineRegular className="dsh-codex-chevron" data-open={open || undefined} size={16} />
       </button>
       {open ? (
         <div className="dsh-codex-body">
@@ -185,7 +185,7 @@ function BridgeCard({ scope }: { scope: SettingsScope<BridgeSettings> }): React.
 
 export function apply(ctx: ClientCtx): void {
   ctx.effect(installStyles, 'dsh-codex-bridge: client styles');
-  const scope = ctx.settingsScope.bind<BridgeSettings>({ namespace: 'dsh-codex-bridge' });
+  const scope = ctx.configForms.get<BridgeSettings>('dsh-codex-bridge' );
   ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
     name: 'settings.plugin.item',
     key: 'dsh-codex-bridge',

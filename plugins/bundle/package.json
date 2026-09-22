@@ -1,0 +1,45 @@
+{
+  "name": "@dfy-plugins/dsh-bundle",
+  "version": "0.1.0",
+  "description": "DFY 插件组合包：壁纸、外观、归档管理、媒体内容、图像生成、交互可视化、任务守卫和 Codex 连接。",
+  "type": "module",
+  "main": "index.js",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": ["index.js", "icon.svg", "cordis.patch.yml", "locale/*.json"],
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "license": "MIT",
+  "scripts": { "test": "node --test test/*.test.mjs" },
+  "dependencies": {
+    "@dfy-plugins/dsh-wallpaper": "workspace:*",
+    "@dfy-plugins/dsh-appearance": "workspace:*",
+    "@dfy-plugins/dsh-archive-manager": "workspace:*",
+    "@dfy-plugins/dsh-media-blocks": "workspace:*",
+    "@dfy-plugins/dsh-image-generation": "workspace:*",
+    "@dfy-plugins/dsh-visualize": "workspace:*",
+    "@dfy-plugins/dsh-turn-guard": "workspace:*",
+    "@dfy-plugins/dsh-codex-bridge": "workspace:*"
+  },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "dfy": {
+    "includes": [
+      "@dfy-plugins/dsh-wallpaper", "@dfy-plugins/dsh-appearance",
+      "@dfy-plugins/dsh-archive-manager", "@dfy-plugins/dsh-media-blocks",
+      "@dfy-plugins/dsh-image-generation", "@dfy-plugins/dsh-visualize",
+      "@dfy-plugins/dsh-turn-guard", "@dfy-plugins/dsh-codex-bridge"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiaoxiao44443/dfy-dsh-plugins.git",
+    "directory": "plugins/bundle"
+  },
+  "homepage": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/bundle",
+  "bugs": { "url": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/issues" },
+  "keywords": ["deepseek-harness", "dsh-plugin", "dsh-bundle"]
+}

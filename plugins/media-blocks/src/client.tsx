@@ -1,37 +1,23 @@
 /** Client projection for @dfy-plugins/dsh-media-blocks. */
 import React from 'react';
-import * as Primitives from '@deepseek-ai/dsh-client-ui-primitives';
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment';
 import {
-  RpcId,
-  type RpcResponse,
-} from '@deepseek-ai/dsh-client-connection/client';
-import {
-  IconCheckOutline16,
-  IconCopyOutline16,
+  IconCheckOutlineRegular,
+  IconCopyOutlineRegular,
   JsonBlock,
   Tooltip,
   writeClipboard,
+  projectUserText,
 } from '@deepseek-ai/dsh-client-ui-primitives';
 
-// MessageText was replaced by projectUserText in the current Web Client.
-// Access optional exports through the namespace so either released SDK loads.
-const textPresentation = Primitives as unknown as {
-  projectUserText?: (text: string, referenceLabels?: readonly string[], skillNames?: readonly string[]) => React.ReactNode;
-  MessageText?: React.ComponentType<{ text: string }>;
-};
-
 function UserText({ text }: { text: string }): React.ReactElement {
-  if (textPresentation.projectUserText !== undefined) return <>{textPresentation.projectUserText(text, [], [])}</>;
-  if (textPresentation.MessageText !== undefined) return React.createElement(textPresentation.MessageText, { text });
-  return <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{text}</span>;
+  return <>{projectUserText(text, [], [])}</>;
 }
 
 export const name = 'media-blocks';
-export const inject = ['slots', 'connection'];
+export const inject = ['slots'];
 
-const BLOCK_TYPE = 'dfy-media';
-const PROMPT_API = '/api/dsh-media-blocks/prompt';
+const BLOCK_TYPE = 'plugin:dfy-media';
 const RESOURCE_API = '/api/dsh-media-blocks/resource';
 const STYLE_ID = '@dfy-plugins/dsh-media-blocks';
 
@@ -49,23 +35,6 @@ interface ClientCtx {
   slots: {
     inject(name: string, register: () => unknown): unknown;
     register(options: SlotEntryOptions, component: unknown): unknown;
-  };
-  connection: { api?: LegacyApiClient };
-}
-
-interface LegacyPromptPayload {
-  sessionId: string;
-  content: readonly { type: string; [key: string]: unknown }[];
-  [key: string]: unknown;
-}
-
-interface LegacyApiClient {
-  sessions: {
-    prompt(payload: LegacyPromptPayload, signal?: AbortSignal): Promise<RpcResponse<{ accepted: true }>>;
-    models(
-      payload: { sessionId: string },
-      signal?: AbortSignal,
-    ): Promise<RpcResponse<{ current: unknown }>>;
   };
 }
 
@@ -121,11 +90,6 @@ interface ImageLabels {
   lightbox: { dialog: string; close: string };
 }
 
-interface PromptEndpointResponse {
-  result?: RpcResponse<{ accepted: true }>['result'];
-  error?: string;
-}
-
 const STYLES = `
 .dsh-media-user-row { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
 .dsh-media-user-stack { display:flex; min-width:0; max-width:min(525px,82%); flex-direction:column; align-items:flex-end; gap:8px; }
@@ -168,16 +132,6 @@ function isMediaImageBlock(value: unknown): value is MediaImageBlock {
     && typeof block.resource.ref === 'string'
     && typeof block.resource.attachment === 'object'
     && block.resource.attachment !== null;
-}
-
-async function jsonResponse<T>(response: Response): Promise<T> {
-  const text = await response.text();
-  if (text.trim().length === 0) throw new Error(`HTTP ${String(response.status)} 返回空响应`);
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new Error(`HTTP ${String(response.status)} 返回无效 JSON`);
-  }
 }
 
 const resourceUrls = new Map<string, Promise<string>>();
@@ -356,7 +310,7 @@ function UserMediaNode({ node, loadImage, t }: ChatNodeProps): React.ReactElemen
         <span>{time}</span>
         <Tooltip label={copied ? t('copied') : t('copy')} side="bottom">
           <button type="button" className="dsh-media-user-action" aria-label={copied ? t('copied') : t('copy')} onClick={copy}>
-            {copied ? <IconCheckOutline16 size={16} /> : <IconCopyOutline16 size={16} />}
+            {copied ? <IconCheckOutlineRegular size={16} /> : <IconCopyOutlineRegular size={16} />}
           </button>
         </Tooltip>
       </div>
@@ -364,35 +318,8 @@ function UserMediaNode({ node, loadImage, t }: ChatNodeProps): React.ReactElemen
   );
 }
 
-function installPromptBridge(api: LegacyApiClient | undefined): () => void {
-  if (api === undefined) return () => {};
-  const sessions = api.sessions;
-  const original = sessions.prompt;
-  const wrapped: typeof sessions.prompt = async (payload, signal) => {
-    if (!payload.content.some((part) => part.type === 'image')) return original(payload, signal);
-    const models = await sessions.models({ sessionId: payload.sessionId }, signal);
-    if (!models.result.ok) {
-      return { rpcId: models.rpcId, result: models.result } as RpcResponse<{ accepted: true }>;
-    }
-    const response = await fetch(PROMPT_API, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...payload, selection: models.result.value.current }),
-      signal,
-    });
-    const body = await jsonResponse<PromptEndpointResponse>(response);
-    if (body.result === undefined) throw new Error(body.error ?? `HTTP ${String(response.status)}`);
-    return { rpcId: RpcId(`media-${crypto.randomUUID()}`), result: body.result };
-  };
-  sessions.prompt = wrapped;
-  return () => {
-    if (sessions.prompt === wrapped) sessions.prompt = original;
-  };
-}
-
 export function apply(ctx: ClientCtx): void {
   ctx.effect(installStyles, 'dsh-media-blocks: client styles');
-  ctx.effect(() => installPromptBridge(ctx.connection.api), 'dsh-media-blocks: image prompt bridge');
   ctx.effect(() => () => {
     for (const pending of resourceUrls.values()) void pending.then((url) => URL.revokeObjectURL(url));
     resourceUrls.clear();
@@ -401,12 +328,12 @@ export function apply(ctx: ClientCtx): void {
     name: 'conversation.chat.node',
     key: 'user',
     priority: -10,
-    locale: 'conversation',
+    locale: 'chat',
   }, (props: ChatNodeProps) => <UserMediaNode {...props} />));
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
     name: 'conversation.chat.node',
     key: 'steering',
     priority: -10,
-    locale: 'conversation',
+    locale: 'chat',
   }, (props: ChatNodeProps) => <UserMediaNode {...props} />));
 }

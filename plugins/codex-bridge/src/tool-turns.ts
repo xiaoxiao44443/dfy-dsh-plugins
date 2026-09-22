@@ -31,7 +31,7 @@ export class ToolTurns {
       }
     });
     ctx.on('agent/pre-step', async ({ agent, messages, turn, signal }, next) => {
-      const controls = messages.filter((message) => message.source.kind === 'plugin' && message.source.plugin === OWNER);
+      const controls = messages.filter((message) => message.source.kind === 'plugin:@dfy-plugins/dsh-codex-bridge');
       if (controls.length === 0) return next();
       for (const message of controls) {
         const pending = this.pending.get(String(message.id));
@@ -76,7 +76,7 @@ export class ToolTurns {
         // notice is filtered above; other queued/steering input keeps its order.
         if (event.data.reason.kind === 'completed') void agent.whenIdle().then(() => {
           if (this.disposed || agent.status !== 'idle' || (!agent.inbox.nextTurn.length && !agent.inbox.nextStep.length)) return;
-          agent.steer(createUserMessage({ content: [{ type: 'text', text: '继续处理桥接轮次后的待处理输入。' }], source: { kind: 'plugin', plugin: OWNER } }));
+          agent.steer(createUserMessage({ content: [{ type: 'text', text: '继续处理桥接轮次后的待处理输入。' }], source: { kind: 'plugin:@dfy-plugins/dsh-codex-bridge' } }));
         }).catch(() => {});
       }
       for (const pending of this.pending.values()) {
@@ -100,7 +100,7 @@ export class ToolTurns {
     signal.throwIfAborted();
     const message = createUserMessage({
       content: [{ type: 'text', text: `Codex 请求直接调用工具：${toolName}（由桥接执行，无需模型回复）。` }],
-      source: { kind: 'plugin', plugin: OWNER, form: 'notice', summary: `Codex 工具调用：${toolName}` },
+      source: { kind: 'plugin:@dfy-plugins/dsh-codex-bridge', form: 'notice', summary: `Codex 工具调用：${toolName}` },
     });
     const id = String(message.id);
     return new Promise((resolve, reject) => {
@@ -133,5 +133,11 @@ export class ToolTurns {
     this.disposed = true;
     this.emptyTurns.clear();
     for (const pending of [...this.pending.values()]) pending.stop();
+  }
+}
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    'plugin:@dfy-plugins/dsh-codex-bridge': { kind: 'plugin:@dfy-plugins/dsh-codex-bridge'; form?: 'notice'; summary?: string };
   }
 }

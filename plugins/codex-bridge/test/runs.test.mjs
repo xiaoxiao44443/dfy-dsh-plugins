@@ -13,6 +13,7 @@ function fakeAgent(id = 'session-test') {
   const events = [];
   const session = {
     events,
+    snapshotEvents: () => [...events],
     get seq() { return events.length },
     header: { id, createdAt: 100, cwd: 'C:\\workspace' },
   };
@@ -94,13 +95,10 @@ test('run tracking correlates one message to its turn and returns incremental ou
     step: 1,
     message: {
       id: 'message-result',
-      role: 'user',
+      role: 'tool',
+      toolCallId: 'call-1',
       source: { kind: 'tool', callId: 'call-1' },
-      content: [{
-        type: 'tool-result',
-        toolCallId: 'call-1',
-        content: [{ type: 'text', text: 'ok' }],
-      }],
+      content: [{ type: 'text', text: 'ok' }],
     },
   });
   tracker.onSessionEvent(agent, result);

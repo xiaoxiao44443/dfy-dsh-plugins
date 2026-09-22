@@ -3,7 +3,9 @@ import { backgroundPositionWithOffset, hexToRgb, modeStyle, surfaceLayerAlphas, 
 export const REGIONS_ATTRIBUTE = 'data-dsh-wallpaper-regions';
 export const REGION_SELECTORS: Record<WallpaperRegion, string> = {
   settings: '[role="dialog"][aria-modal="true"]:has([data-slot="settings.header"])',
-  sidebar: '[data-sidebar-right-panel]',
+  // The outer panel remains mounted when closed and must not form a stacking
+  // context: docked panes slide away independently while floating tabs escape.
+  sidebar: '[data-sidebar-right-panel] :is([data-dockkit-pane], [data-dockkit-float])',
 };
 
 const PROPERTIES = ['image', 'size', 'repeat', 'position', 'opacity', 'blur', 'mask-rgb', 'mask-opacity', 'surface-1', 'surface-2', 'surface-3'] as const;
@@ -30,6 +32,9 @@ export function regionVariables(settings: WallpaperSettings, globalUrl: string |
 export const REGION_STYLES = `
 body[${REGIONS_ATTRIBUTE}] { --dsh-wallpaper-region-rgb: 255 255 255; }
 body[${REGIONS_ATTRIBUTE}][data-ds-dark-theme] { --dsh-wallpaper-region-rgb: 18 22 32; }
+body[${REGIONS_ATTRIBUTE}] [data-sidebar-right-panel] [data-dockkit-pane] {
+  position: relative;
+}
 ${WALLPAPER_REGIONS.map((region) => {
   const selector = `body[${REGIONS_ATTRIBUTE}] ${REGION_SELECTORS[region]}`;
   const variable = (name: string): string => `var(--dsh-wallpaper-${region}-${name})`;

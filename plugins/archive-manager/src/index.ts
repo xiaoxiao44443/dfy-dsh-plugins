@@ -22,51 +22,16 @@ export const name = 'archive-manager';
 /** 硬依赖：HTTP 服务和工作区注册表均就绪后插件才激活。 */
 export const inject = ['webServer', 'workspaceRegistry'];
 
-interface WorkspaceState {
-  initialized: boolean;
-  workspaceIds: readonly string[];
-  archivedSessionIds: readonly string[];
-  [key: string]: unknown;
-}
-
-/**
- * rc.6 尚未公开 unarchiveSession，但注册表内部已经以串行、先持久化再发布
- * 的方式维护同一份状态。这里做能力检测后复用该机制，避免直接改文件造成
- * Host 内存状态和浏览器端列表不同步。
- */
-interface RestorableWorkspaceRegistry {
-  enqueueOperation<T>(operation: () => Promise<T>): Promise<T>;
-  requireState(): WorkspaceState;
-  setState(state: WorkspaceState): Promise<void>;
-}
-
-function restorableRegistry(ctx: Context): RestorableWorkspaceRegistry {
-  const registry = (ctx as Context & { workspaceRegistry?: unknown }).workspaceRegistry as
-    | Partial<RestorableWorkspaceRegistry>
-    | undefined;
-  if (
-    registry === undefined ||
-    typeof registry.enqueueOperation !== 'function' ||
-    typeof registry.requireState !== 'function' ||
-    typeof registry.setState !== 'function'
-  ) {
-    throw new Error('当前 Harness 版本不支持即时取消归档');
-  }
-  return registry as RestorableWorkspaceRegistry;
-}
-
+/** Use the public registry operation so persistence and live lists update together. */
 async function unarchiveSession(ctx: Context, id: string): Promise<boolean> {
   if (!isValidSessionId(id)) throw new Error(`invalid session id: ${JSON.stringify(id)}`);
-  const registry = restorableRegistry(ctx);
-  return registry.enqueueOperation(async () => {
-    const state = registry.requireState();
-    if (!state.archivedSessionIds.includes(id)) return false;
-    await registry.setState({
-      ...state,
-      archivedSessionIds: state.archivedSessionIds.filter((sessionId) => sessionId !== id),
-    });
-    return true;
-  });
+  const registry = (ctx as Context & { workspaceRegistry: {
+    archivedSessionIds: readonly string[];
+    unarchiveSession(id: string): Promise<void>;
+  } }).workspaceRegistry;
+  if (!registry.archivedSessionIds.includes(id)) return false;
+  await registry.unarchiveSession(id);
+  return true;
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {

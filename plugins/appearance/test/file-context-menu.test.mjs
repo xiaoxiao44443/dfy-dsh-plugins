@@ -78,7 +78,7 @@ function fileMenu(path, { cwd, artifacts = [], visualizationContainer = false, .
     } },
     effect: () => {},
     inject: (_names, callback) => callback({ ...ctx, effect: (setup) => setup() }),
-    settingsScope: { bind: () => ({}) },
+    configForms: { get: () => ({}) },
     slots: { inject: () => {} },
   };
   module.exports.apply(ctx);

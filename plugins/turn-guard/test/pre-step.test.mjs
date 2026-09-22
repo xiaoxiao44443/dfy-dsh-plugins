@@ -8,8 +8,9 @@ function fixture() {
   const agent = { id: 'guard-fixture', inject() {}, cancel() {} };
   apply({
     on: (name, callback) => listeners.set(name, callback),
-    settings: { register: () => ({ get: () => config, watch() {} }) },
-  }, config);
+    settings: { configure: () => () => {} },
+    effect: setup => setup(), root: { get: () => ({ await: () => new Promise(() => {}) }) },
+  }, Object.fromEntries(Object.entries(config).map(([key, value]) => [key, { get: () => value }])));
   return { agent, listeners, preStep: listeners.get('agent/pre-step') };
 }
 

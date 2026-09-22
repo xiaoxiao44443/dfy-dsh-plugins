@@ -2,10 +2,10 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type { Agent, AgentSetup } from '@deepseek-ai/dsh-agent';
 import type {} from '@deepseek-ai/dsh-agent';
-import type {} from '@deepseek-ai/dsh-agent-presets';
+import type {} from '@deepseek-ai/dsh-agent-preset-registry';
 import { MessageId } from '@deepseek-ai/dsh-llm';
 import { SessionId } from '@deepseek-ai/dsh-session';
-import type { SettingsNamespace } from '@deepseek-ai/dsh-settings';
+import { configureSettings, readLiveConfig, watchLiveConfig, type LiveConfig } from '@dfy-plugins/resource-core/settings';
 import type {} from '@deepseek-ai/dsh-skill';
 import type {} from '@deepseek-ai/dsh-tools';
 import { WorkspaceId } from '@deepseek-ai/dsh-workspace';
@@ -40,15 +40,17 @@ import { ToolTurns } from './tool-turns.js';
 export const name = 'codex-bridge';
 export const inject = ['agents', 'agentPresets', 'tools', 'skills', 'settings', 'webServer', 'workspaceRegistry'];
 
-export interface Config {
+interface Settings {
   enabled?: boolean;
 }
 
-export const Config: z<Config> = z.object({
-  enabled: z.boolean().default(true),
+export type Config = LiveConfig<Settings>;
+
+export const Config = z.object({
+  enabled: z.boolean().default(true).volatile(),
 });
 
-const SETTINGS_NS = 'dsh-codex-bridge' as SettingsNamespace;
+const SETTINGS_NS = 'dsh-codex-bridge';
 const STATUS_PATH = '/api/dsh-codex-bridge/status';
 const DISCOVERY_PATH = process.env.DSH_CODEX_BRIDGE_FILE
   ?? join(homedir(), '.saltfish', 'dfy-dsh', 'codex-bridge-endpoint.json');
@@ -175,20 +177,18 @@ function submissionView(snapshot: ReturnType<RunTracker['snapshot']>, deduplicat
   };
 }
 
-export function apply(ctx: Context, entryConfig: Config = {}): void {
+export function apply(ctx: Context, entryConfig: Config): void {
   const activity = new Map<string, number>();
   const nestedResults = new Map<string, { name: string; result?: unknown }>();
   const bridge: BridgeState = {};
   const runs = new RunTracker(() => ctx.agents.list());
   const toolTurns = new ToolTurns(ctx);
-  // The older SDK has no declaration for this process-local V3 event.
-  const streamCtx = ctx as Context & { on(name: 'agent/assistant-stream', listener: (payload: { agent: Agent; frame: AssistantStreamFrame }) => void): unknown };
-  streamCtx.on('agent/assistant-stream', ({ agent, frame }) => runs.onAssistantStream(agent, frame));
+  ctx.on('agent/assistant-stream', ({ agent, frame }) => runs.onAssistantStream(agent, frame));
   let generation = 0;
 
   for (const agent of ctx.agents.list()) activity.set(String(agent.id), agent.session.header.createdAt);
   const touch = (agent: Agent): void => { activity.set(String(agent.id), Date.now()); };
-  ctx.on('agent/created', ({ agent }) => touch(agent));
+  ctx.on('agent/created', ({ agent }) => { touch(agent); });
   ctx.on('agent/status', ({ agent }) => touch(agent));
   ctx.on('agent/inbox/inserted', ({ agent }) => touch(agent));
   ctx.on('agent/inbox/claimed', ({ agent, message, turn }) => {
@@ -499,9 +499,8 @@ export function apply(ctx: Context, entryConfig: Config = {}): void {
     bridge.token = token;
   };
 
-  let latest = normalizeConfig(entryConfig);
-  const scope = ctx.settings.register(SETTINGS_NS, Config, { base: entryConfig });
-  latest = normalizeConfig(scope.get());
+  configureSettings(ctx, 'codex-bridge', SETTINGS_NS);
+  let latest = normalizeConfig(readLiveConfig<Settings>(entryConfig));
   const sync = (): void => {
     if (latest.enabled) void startBridge().catch((error) => {
       bridge.origin = undefined;
@@ -510,7 +509,7 @@ export function apply(ctx: Context, entryConfig: Config = {}): void {
     });
     else void stopBridge();
   };
-  scope.watch((next) => { latest = normalizeConfig(next); sync(); });
+  watchLiveConfig(ctx, () => { latest = normalizeConfig(readLiveConfig<Settings>(entryConfig)); sync(); });
   sync();
 
   const statusRoute: WebRoute = {

@@ -13,7 +13,7 @@ test('appearance registers durable settings, a sidebar page, and per-response la
   ]);
   assert.equal(JSON.parse(pkg).name, '@dfy-plugins/dsh-appearance');
   assert.match(patch, /id: appearance\r?\n\s+name: '@dfy-plugins\/dsh-appearance'/);
-  assert.match(host, /'dsh-appearance' as SettingsNamespace/);
+  assert.match(host, /configureSettings\(ctx, 'appearance', SETTINGS_NS\)/);
   assert.match(client, /name: 'settings\.section'/);
   assert.match(client, /id: 'appearance'/);
   assert.match(client, /label: '外观'/);
@@ -71,17 +71,8 @@ test('appearance registers durable settings, a sidebar page, and per-response la
   assert.match(client, /current\.host\.isConnected/);
   assert.match(client, /sameElements\(current\.artifactRows, artifactRows\)\) return/);
   assert.match(client, /if \(desiredPromotions\.has\(marker\)\) continue/);
-  assert.match(client, /outputRow\.after\(host\)/);
   assert.match(client, /artifactIndices/);
   assert.match(client, /collapseProcess/);
-  assert.match(client, /const OFFICIAL_CHAT_SETTINGS_NAMESPACE = 'ui-chat'/);
-  assert.match(client, /installOfficialTranscriptCompatibility/);
-  assert.match(client, /officialScope\.set\('transcriptView', 'normal'\)/);
-  assert.match(client, /appearanceScope\.subscribe\(reconcile\)/);
-  assert.match(client, /processFoldingActivated/);
-  assert.match(client, /customProcessFoldingEnabled/);
-  assert.match(client, /officialSnapshot\.status !== 'loading'/);
-  assert.match(client, /officialChatScope\.subscribe\(scheduleRefresh\)/);
   assert.match(client, /ctx\.get\?\.\('desktopContextMenu'\)/);
   assert.match(client, /ctx\.inject\(\['desktopContextMenu'\]/);
   assert.match(client, /id: 'appearance\.open-file'/);
@@ -94,9 +85,7 @@ test('appearance registers durable settings, a sidebar page, and per-response la
   assert.match(client, /id: 'appearance\.open-workspace-folder'/);
   assert.match(client, /label: '打开文件夹'/);
   assert.match(client, /\/api\/dsh-desktop\/shell\/open/);
-  assert.match(client, /typeof workspaces\?\.openPath === 'function'/);
   assert.match(client, /await openWorkspaceFolder\(ctx, path\)/);
-  assert.match(client, /response\.status === 404/);
   assert.match(client, /data-produced-files-row/);
   assert.match(client, /data-dsh-artifact-url/);
 });

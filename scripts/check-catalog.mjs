@@ -26,5 +26,13 @@ for (const entry of catalog.plugins) {
   const manifest = packages.get(entry.name)
   assert.ok(manifest, `插件目录中不存在对应的包：${entry.name}`)
   assert.ok(typeof manifest.dsh?.bundle?.patch === 'string', `不是可安装的 DSH 插件：${entry.name}`)
+  if (entry.includes !== undefined) {
+    assert.deepEqual(entry.includes, manifest.dfy?.includes, `组合包目录与发布清单不一致：${entry.name}`)
+    assert.equal(new Set(entry.includes).size, entry.includes.length)
+    for (const member of entry.includes) {
+      assert.notEqual(member, entry.name)
+      assert.ok(packages.has(member) && member in manifest.dependencies, `缺少组合包依赖：${member}`)
+    }
+  }
 }
 console.log(`插件目录校验通过：${seen.size} 个插件。`)

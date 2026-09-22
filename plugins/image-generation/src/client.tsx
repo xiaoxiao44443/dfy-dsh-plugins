@@ -3,9 +3,9 @@ import React from 'react';
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment';
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client';
 import {
-  IconChevronDownOutline14,
-  IconInspectOutline12,
-  IconSparkle16,
+  IconChevronDownOutlineRegular,
+  IconInspectOutlineRegular,
+  IconSparkleRegular,
   Menu,
   StateDot,
   type MenuItem,
@@ -29,7 +29,7 @@ interface SettingsSnapshot<T> {
 interface SettingsScope<T> {
   getSnapshot(): SettingsSnapshot<T>;
   subscribe(listener: () => void): () => void;
-  set(field: string, value: unknown): Promise<void>;
+  set(field: string, value: unknown): Promise<boolean>;
 }
 
 interface SlotEntryOptions {
@@ -44,8 +44,8 @@ interface ClientCtx {
     inject(name: string, register: () => unknown): unknown;
     register(options: SlotEntryOptions, component: unknown): unknown;
   };
-  settingsScope: {
-    bind<T>(spec: { namespace: string }): SettingsScope<T>;
+  configForms: {
+    get<T>(entryId: string): SettingsScope<T>;
   };
 }
 
@@ -87,7 +87,7 @@ interface SessionImageRef {
 }
 
 interface SessionImageBlock {
-  type: 'dfy-session-image';
+  type: 'plugin:dfy-session-image';
   version: 1;
   ref: string;
   image: SessionImageRef;
@@ -115,7 +115,7 @@ interface SelectOption {
 }
 
 export const name = 'image-generation';
-export const inject = ['slots', 'settingsScope'];
+export const inject = ['slots', 'configForms'];
 
 const STATUS_API = '/api/dsh-image-generation/status';
 const RESOURCE_API = '/api/dsh-image-generation/resource';
@@ -278,7 +278,7 @@ function isImageBlock(value: unknown): value is ImageBlock {
 }
 
 function isSessionImageBlock(value: unknown): value is SessionImageBlock {
-  return isRecord(value) && value.type === 'dfy-session-image' && value.version === 1
+  return isRecord(value) && value.type === 'plugin:dfy-session-image' && value.version === 1
     && typeof value.ref === 'string' && value.ref.length > 0 && isSessionImage(value.image);
 }
 
@@ -396,9 +396,7 @@ function resultImages(block: ToolCallViewProps['block']): DisplayImage[] {
   }
   if (images.length > 0) return images;
 
-  // Keep old projected results and official image blocks replayable.
-  const legacy = (block as { resultView?: { card?: string; content?: unknown } }).resultView;
-  const content = legacy?.card === 'generic' && Array.isArray(legacy.content) ? legacy.content : block.content;
+  const content = block.content;
   for (const item of content) {
     if (isSessionImageBlock(item)) {
       add(item.ref, item.image.name);
@@ -464,7 +462,7 @@ function ImageToolRow({ block, inspect }: ToolCallViewProps): React.ReactElement
         }}
       >
         <span className="dsh-imagegen-tool-leading">
-          {state === 'error' ? <StateDot state="error" /> : state === 'stopped' ? <StateDot state="warning" /> : open ? <IconChevronDownOutline14 /> : <IconSparkle16 size={14} />}
+          {state === 'error' ? <StateDot state="error" /> : state === 'stopped' ? <StateDot state="warning" /> : open ? <IconChevronDownOutlineRegular /> : <IconSparkleRegular size={14} />}
         </span>
         <span className="dsh-imagegen-tool-title">DFY IMAGE GENERATE</span>
         <span className="dsh-imagegen-tool-separator" aria-hidden />
@@ -480,7 +478,7 @@ function ImageToolRow({ block, inspect }: ToolCallViewProps): React.ReactElement
           <pre className="dsh-imagegen-tool-output" data-error={state === 'error' || undefined}>{output}</pre>
           {inspect === undefined ? null : (
             <button type="button" className="dsh-imagegen-tool-inspect" onClick={inspect}>
-              <IconInspectOutline12 /> Inspect
+              <IconInspectOutlineRegular /> Inspect
             </button>
           )}
         </>
@@ -551,7 +549,7 @@ function ImageSelect({
           onClick={() => setOpen((current) => !current)}
         >
           <span>{selectedLabel}</span>
-          <IconChevronDownOutline14 size={16} />
+          <IconChevronDownOutlineRegular size={16} />
         </button>
       )}
     />
@@ -657,7 +655,7 @@ function ImageSettingsCard({ scope }: { scope: SettingsScope<ImageSettings> }): 
         <span className="dsh-imagegen-badge" title={status?.activation.status === 'error' ? status.activation.message : undefined}>
           {activationLabel(status?.activation ?? null)}
         </span>
-        <IconChevronDownOutline14 className="dsh-imagegen-chevron" data-open={open || undefined} size={16} />
+        <IconChevronDownOutlineRegular className="dsh-imagegen-chevron" data-open={open || undefined} size={16} />
       </button>
       {open ? (
         <div className="dsh-imagegen-body">
@@ -741,7 +739,7 @@ export function apply(ctx: ClientCtx): void {
     for (const pending of resourceUrls.values()) void pending.then((url) => URL.revokeObjectURL(url));
     resourceUrls.clear();
   }, 'dsh-image-generation: release object URLs');
-  const scope = ctx.settingsScope.bind<ImageSettings>({ namespace: 'dsh-image-generation' });
+  const scope = ctx.configForms.get<ImageSettings>('dsh-image-generation' );
   ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
     name: 'tool.call.toolview',
     key: 'dfy_image_generate',

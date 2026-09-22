@@ -2,9 +2,9 @@
 import React from 'react';
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client';
 import {
-  IconChevronDownOutline14,
-  IconInspectOutline12,
-  IconSparkle16,
+  IconChevronDownOutlineRegular,
+  IconInspectOutlineRegular,
+  IconSparkleRegular,
   StateDot,
 } from '@deepseek-ai/dsh-client-ui-primitives';
 
@@ -243,7 +243,7 @@ function VisualizationToolRow({ block, inspect }: ToolCallViewProps): React.Reac
   const heading = (
     <>
       <span className="dsh-visualize-leading">
-        {state === 'error' ? <StateDot state="error" /> : state === 'stopped' ? <StateDot state="warning" /> : <IconSparkle16 size={14} />}
+        {state === 'error' ? <StateDot state="error" /> : state === 'stopped' ? <StateDot state="warning" /> : <IconSparkleRegular size={14} />}
       </span>
       <span className="dsh-visualize-title">DFY VISUALIZE</span>
     </>
@@ -282,7 +282,7 @@ function VisualizationToolRow({ block, inspect }: ToolCallViewProps): React.Reac
             onClick={() => setOpen((value) => !value)}
           >
             <span className="dsh-visualize-summary">{summary}</span>
-            <IconChevronDownOutline14 className="dsh-visualize-chevron" size={14} />
+            <IconChevronDownOutlineRegular className="dsh-visualize-chevron" size={14} />
           </button>
         )}
       </div>
@@ -304,7 +304,7 @@ function VisualizationToolRow({ block, inspect }: ToolCallViewProps): React.Reac
           </div>
           {inspect === undefined ? null : (
             <button type="button" className="dsh-visualize-inspect-action" onClick={inspect}>
-              <IconInspectOutline12 /> Inspect
+              <IconInspectOutlineRegular /> Inspect
             </button>
           )}
       </div>

@@ -86,15 +86,9 @@ const MAX_OUTPUT_CHARS = 500_000;
 const MAX_ARGUMENT_CHARS = 20_000;
 const DEFAULT_MAX_EVENTS = 100;
 
-/** rc.1+ exposes immutable snapshots; retain older hosts' event-array support. */
+/** Immutable event window from the supported Harness Session API. */
 function sessionEvents(session: Agent['session']): readonly SessionEvent[] {
-  const view = session as unknown as {
-    snapshotEvents?: () => readonly SessionEvent[];
-    events?: readonly SessionEvent[];
-  };
-  if (typeof view.snapshotEvents === 'function') return view.snapshotEvents();
-  if (Array.isArray(view.events)) return view.events;
-  throw new Error('当前 Harness 不支持读取会话事件');
+  return session.snapshotEvents();
 }
 
 function bounded(value: string, maximum: number): { text: string; truncated: boolean } {
@@ -148,7 +142,6 @@ function textFromBlocks(blocks: readonly ContentBlock[]): string {
   let text = '';
   for (const block of blocks) {
     if (block.type === 'text' || block.type === 'reasoning') text += block.text;
-    else if (block.type === 'tool-result') text += textFromBlocks(block.content);
   }
   return text;
 }
@@ -168,13 +161,6 @@ function publicContent(blocks: readonly ContentBlock[]): Record<string, unknown>
         callId: String(block.id),
         name: block.name,
         arguments: bounded(block.arguments, MAX_ARGUMENT_CHARS).text,
-      });
-    } else if (block.type === 'tool-result') {
-      result.push({
-        type: 'tool_result',
-        callId: String(block.toolCallId),
-        isError: block.isError === true,
-        text: bounded(textFromBlocks(block.content), MAX_ARGUMENT_CHARS).text,
       });
     }
   }
@@ -264,11 +250,7 @@ export function findMessageInAgent(agent: Agent, messageId: string): LocatedMess
 }
 
 function resultCallId(event: Extract<SessionEvent, { type: 'tool/result' }>): string | undefined {
-  if (event.data.message.source.kind === 'tool') return String(event.data.message.source.callId);
-  for (const block of event.data.message.content) {
-    if (block.type === 'tool-result') return String(block.toolCallId);
-  }
-  return undefined;
+  return String(event.data.message.toolCallId);
 }
 
 function projectEvent(event: SessionEvent, turnForUser?: number): Record<string, unknown> | undefined {
@@ -323,7 +305,7 @@ function projectEvent(event: SessionEvent, turnForUser?: number): Record<string,
         step: event.data.step,
         callId: resultCallId(event),
         isError: event.data.error !== undefined
-          || event.data.message.content.some((block) => block.type === 'tool-result' && block.isError === true),
+          || event.data.message.isError === true,
         text: text.text,
         textTruncated: text.truncated,
         ...(event.data.error === undefined ? {} : { error: event.data.error }),
@@ -562,7 +544,7 @@ export class RunTracker {
         }
         const resultText = bounded(textFromBlocks(result.data.message.content), MAX_ARGUMENT_CHARS);
         const failed = result.data.error !== undefined
-          || result.data.message.content.some((block) => block.type === 'tool-result' && block.isError === true);
+          || result.data.message.isError === true;
         return {
           callId,
           name: event.data.name,

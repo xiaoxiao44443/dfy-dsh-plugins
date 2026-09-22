@@ -1,6 +1,6 @@
 {
   "name": "@dfy-plugins/resource-core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Versioned resource references and provider registry shared by DFY DSH plugins.",
   "type": "module",
   "main": "lib/index.js",
@@ -14,7 +14,11 @@
       "types": "./lib/session-storage.d.ts",
       "default": "./lib/session-storage.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./settings": {
+      "types": "./lib/settings.d.ts",
+      "default": "./lib/settings.js"
+    }
   },
   "files": [
     "lib"
@@ -31,7 +35,10 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "typescript": "^5.5.0"
+    "typescript": "^6.0.3",
+    "@deepseek-ai/cordis": "^4.0.3",
+    "@deepseek-ai/dsh-settings": "0.1.7-alpha.1",
+    "@deepseek-ai/cordis-plugin-loader": "^1.0.4"
   },
   "repository": {
     "type": "git",
@@ -44,5 +51,13 @@
   },
   "keywords": [
     "deepseek-harness"
-  ]
+  ],
+  "dependencies": {
+    "yaml": "^2.8.1"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.3",
+    "@deepseek-ai/dsh-settings": ">=0.1.7-alpha.1",
+    "@deepseek-ai/cordis-plugin-loader": "^1.0.4"
+  }
 }

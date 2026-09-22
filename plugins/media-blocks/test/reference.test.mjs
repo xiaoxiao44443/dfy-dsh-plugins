@@ -21,7 +21,7 @@ const attachment = {
 };
 
 const mediaBlock = {
-  type: 'dfy-media',
+  type: 'plugin:dfy-media',
   version: 1,
   resource: { kind: 'image', ref: encodeMediaImageRef(attachment), attachment },
   presentation: { name: attachment.name },
@@ -76,7 +76,7 @@ test('text requests use the registered reference adapter without changing durabl
   const projected = transformMediaContent([mediaBlock], false, options, adapters);
   assert.equal(projected.changed, true);
   assert.match(projected.content[0].text, /^<vision_image ref=/);
-  assert.equal(mediaBlock.type, 'dfy-media');
+  assert.equal(mediaBlock.type, 'plugin:dfy-media');
 });
 
 test('multiple adapters can share one media kind and the first applicable result wins', () => {

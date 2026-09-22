@@ -1,14 +1,7 @@
 import type { StreamChunk } from '@deepseek-ai/dsh-llm';
 
-// Structural types keep the bridge buildable with the released older SDK.
-export type AssistantStreamFrame = {
-  type: 'start'; attemptId: string; revision: number; turn: number; step: number;
-} | {
-  type: 'chunk'; attemptId: string; revision: number; index: number; time: number; chunk: StreamChunk;
-} | {
-  type: 'end'; attemptId: string; revision: number; index: number;
-  outcome: { kind: 'committed'; eventType: 'assistant/message' | 'assistant/attempt'; seq: number } | { kind: 'abandoned' };
-};
+import type { AssistantStreamFrame } from '@deepseek-ai/dsh-agent';
+export type { AssistantStreamFrame };
 
 export interface StreamText { text: string; reasoning: string }
 

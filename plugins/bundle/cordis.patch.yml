@@ -1,0 +1,19 @@
+# Keep the same IDs and module names as the standalone bundles so settings and
+# user row overrides survive switching installation forms.
+- insert:
+    - id: wallpaper
+      name: '@dfy-plugins/dsh-wallpaper'
+    - id: appearance
+      name: '@dfy-plugins/dsh-appearance'
+    - id: archive-manager
+      name: '@dfy-plugins/dsh-archive-manager'
+    - id: media-blocks
+      name: '@dfy-plugins/dsh-media-blocks'
+    - id: image-generation
+      name: '@dfy-plugins/dsh-image-generation'
+    - id: visualize
+      name: '@dfy-plugins/dsh-visualize'
+    - id: turn-guard
+      name: '@dfy-plugins/dsh-turn-guard'
+    - id: codex-bridge
+      name: '@dfy-plugins/dsh-codex-bridge'

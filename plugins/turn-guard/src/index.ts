@@ -2,7 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
-import type { SettingsNamespace } from '@deepseek-ai/dsh-settings';
+import { configureSettings, readLiveConfig, watchLiveConfig, type LiveConfig } from '@dfy-plugins/resource-core/settings';
 import type { ToolExecution, ToolExecutionResult } from '@deepseek-ai/dsh-tools';
 import z from '@deepseek-ai/schemastery';
 import {
@@ -29,29 +29,28 @@ import {
 export const name = 'turn-guard';
 export const inject = ['settings', 'tools'];
 
-export interface Config extends Partial<TurnGuardSettings> {}
+export type Config = LiveConfig<TurnGuardSettings>;
 
-export const Config: z<Config> = z.object({
-  enabled: z.boolean().default(true),
-  behaviorGuidance: z.boolean().default(true),
-  hardStop: z.boolean().default(true),
-  warningStep: z.number().step(1).min(2).max(199).default(12),
-  maxModelSteps: z.number().step(1).min(4).max(200).default(20),
-  maxToolCalls: z.number().step(1).min(8).max(500).default(50),
-  maxDurationMinutes: z.number().step(1).min(1).max(180).default(15),
-  repeatedCallLimit: z.number().step(1).min(2).max(20).default(3),
-  repeatedFailureLimit: z.number().step(1).min(2).max(20).default(3),
+export const Config = z.object({
+  enabled: z.boolean().default(true).volatile(),
+  behaviorGuidance: z.boolean().default(true).volatile(),
+  hardStop: z.boolean().default(true).volatile(),
+  warningStep: z.number().step(1).min(2).max(199).default(12).volatile(),
+  maxModelSteps: z.number().step(1).min(4).max(200).default(20).volatile(),
+  maxToolCalls: z.number().step(1).min(8).max(500).default(50).volatile(),
+  maxDurationMinutes: z.number().step(1).min(1).max(180).default(15).volatile(),
+  repeatedCallLimit: z.number().step(1).min(2).max(20).default(3).volatile(),
+  repeatedFailureLimit: z.number().step(1).min(2).max(20).default(3).volatile(),
 });
 
-const SETTINGS_NS = 'dsh-turn-guard' as SettingsNamespace;
+const SETTINGS_NS = 'dsh-turn-guard';
 const PLUGIN_ID = '@dfy-plugins/dsh-turn-guard';
 
 function guardMessage(text: string, summary = '任务守卫建议当前回合收敛') {
   return createUserMessage({
     content: [{ type: 'text', text }],
     source: {
-      kind: 'plugin',
-      plugin: PLUGIN_ID,
+      kind: 'plugin:@dfy-plugins/dsh-turn-guard',
       form: 'notice',
       summary,
     },
@@ -63,9 +62,9 @@ function injectReminder(agent: Agent, text: string | undefined): void {
 }
 
 export function apply(ctx: Context, entryConfig: Config): void {
-  const scope = ctx.settings.register(SETTINGS_NS, Config, { base: entryConfig });
-  let settings = normalizeTurnGuardSettings(scope.get());
-  scope.watch((next) => { settings = normalizeTurnGuardSettings(next); });
+  configureSettings(ctx, 'turn-guard', SETTINGS_NS);
+  let settings = normalizeTurnGuardSettings(readLiveConfig<TurnGuardSettings>(entryConfig));
+  watchLiveConfig(ctx, () => { settings = normalizeTurnGuardSettings(readLiveConfig<TurnGuardSettings>(entryConfig)); });
   const states = new Map<string, TurnState>();
 
   const stateFor = (agent: Agent, turn: number, now = Date.now()): TurnState => {
@@ -183,4 +182,10 @@ export function apply(ctx: Context, entryConfig: Config): void {
   ctx.on('agent/disposed', ({ agent }) => {
     states.delete(String(agent.id));
   });
+}
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    'plugin:@dfy-plugins/dsh-turn-guard': { kind: 'plugin:@dfy-plugins/dsh-turn-guard'; form?: 'notice'; summary?: string };
+  }
 }

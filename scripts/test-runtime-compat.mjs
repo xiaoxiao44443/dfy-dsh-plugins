@@ -1,14 +1,16 @@
 // Integration checks against the shipped DSH runtime. No models, user data,
 // sockets, or installed profile are used. All sessions live only in memory.
 import assert from 'node:assert/strict';
-import { resolve, join } from 'node:path';
+import { resolve, join, dirname } from 'node:path';
+import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { ToolTurns } from '../plugins/codex-bridge/lib/tool-turns.js';
 import { installNativePromptBridge } from '../plugins/media-blocks/lib/native-prompt.js';
 
 const runtime = process.argv[2] && resolve(process.argv[2]);
 if (!runtime) throw new Error('Usage: node scripts/test-runtime-compat.mjs <DSH runtime directory>');
-const sdk = (name) => import(pathToFileURL(join(runtime, 'node_modules/@deepseek-ai', name, 'lib/index.js')).href);
+const runtimeRequire = createRequire(createRequire(join(runtime, 'package.json')).resolve('@deepseek-ai/dsh/package.json'));
+const sdk = (name) => import(pathToFileURL(runtimeRequire.resolve(`@deepseek-ai/${name}`)).href);
 const { Context, Service } = await sdk('cordis');
 const { SessionStore, Session } = await sdk('dsh-session');
 const { AgentRegistry } = await sdk('dsh-agent');
@@ -119,7 +121,7 @@ try {
   assert.equal(Object.hasOwn(controller, 'prompt'), false);
   console.log('PASS actual Cordis service proxy: native prompt install, overlapping reload and cleanup');
 
-  const { SessionCommandController } = await import(pathToFileURL(join(runtime, 'node_modules/@deepseek-ai/dsh-api-session-controller/lib/types/commands.js')).href);
+  const { SessionCommandController } = await import(pathToFileURL(join(dirname(runtimeRequire.resolve('@deepseek-ai/dsh-api-session-controller/package.json')), 'lib/types/commands.js')).href);
   const inbox = { nextTurn: [], nextStep: [] };
   const receiver = { id: 'session-upload-fixture', inbox, session: { snapshotEvents: () => [] }, followup: message => inbox.nextTurn.push(message) };
   const selection = { provider: 'fixture', model: 'text-only' };
@@ -141,7 +143,7 @@ try {
   const removeNative = installNativePromptBridge(native, { prepare: async () => true, admit: host.attachments.admitPromptContent, isLive: a => a === receiver, files });
   await Promise.all([native.prompt(prompt, new AbortController().signal), native.prompt(prompt, new AbortController().signal)]);
   assert.equal(inbox.nextTurn.length, 1); assert.equal(binds, 1);
-  assert.deepEqual(inbox.nextTurn[0].content.map(p => p.type), ['dfy-media', 'file']);
+  assert.deepEqual(inbox.nextTurn[0].content.map(p => p.type), ['plugin:dfy-media', 'file']);
   await assert.rejects(native.prompt({ ...prompt, requestId: 'bad-timezone', clientTimeZone: 'Not/A_Timezone' }, new AbortController().signal), e => e.code === 'session/invalid-time-zone');
   assert.equal(inbox.nextTurn.length, 1);
   removeNative();

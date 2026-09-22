@@ -28,7 +28,7 @@ import { installNativePromptBridge, type NativeController, type NativePromptDepe
 export { decodeMediaImageRef, encodeMediaImageRef } from './reference.js';
 export { detectImageMediaType } from '@dfy-plugins/image-protocol';
 
-export const MEDIA_BLOCK_TYPE = 'dfy-media';
+export const MEDIA_BLOCK_TYPE = 'plugin:dfy-media';
 export const MEDIA_PROMPT_API = '/api/dsh-media-blocks/prompt';
 export const MEDIA_RESOURCE_API = '/api/dsh-media-blocks/resource';
 export const MEDIA_STATUS_API = '/api/dsh-media-blocks/status';
@@ -59,7 +59,7 @@ export interface MediaBlock {
 
 declare module '@deepseek-ai/dsh-llm' {
   interface ContentBlockMap {
-    'dfy-media': MediaBlock;
+    'plugin:dfy-media': MediaBlock;
   }
 }
 
@@ -226,8 +226,7 @@ function textFallback(block: MediaBlock): ContentBlock {
 }
 
 function hasMediaBlock(content: readonly ContentBlock[]): boolean {
-  return content.some((block) => block.type === MEDIA_BLOCK_TYPE
-    || (block.type === 'tool-result' && hasMediaBlock(block.content)));
+  return content.some((block) => block.type === MEDIA_BLOCK_TYPE);
 }
 
 /** PTC hides child tools on the model wire; reference adapters need the scoped catalog. */
@@ -267,12 +266,7 @@ export function transformMediaContent(
       transformed.push(...(adapted ?? [textFallback(block)]));
       continue;
     }
-    if (block.type === 'tool-result' && hasMediaBlock(block.content)) {
-      const nested = transformMediaContent(block.content, supportsImages, options, adapters);
-      transformed.push({ ...block, content: nested.content });
-      changed ||= nested.changed;
-      continue;
-    }
+
     transformed.push(block);
   }
   return { content: transformed, changed };
@@ -368,10 +362,10 @@ export default class MediaBlocks extends Service {
         const supportsImages = info.inputModalities?.includes('image') === true;
         const adapterOptions = mediaAdapterOptions(options, ctx);
         let changed = false;
-        const messages: Message[] = options.messages.map((message) => {
+        const messages: GenerateOptions['messages'] = options.messages.map((message) => {
           const transformed = transformMediaContent(message.content, supportsImages, adapterOptions, adapters);
           changed ||= transformed.changed;
-          return transformed.changed ? freezeMessage({ ...message, content: transformed.content }) : message;
+          return transformed.changed ? deepFreeze({ ...message, content: transformed.content }) : message;
         });
         let projected = changed ? { ...options, messages } : options;
         if (changed && isAgentLoopRequest(options)) {

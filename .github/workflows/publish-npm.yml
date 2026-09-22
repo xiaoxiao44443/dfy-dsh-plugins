@@ -38,7 +38,7 @@ jobs:
       - name: Prepare the target Harness runtime
         run: |
           mkdir -p "$RUNNER_TEMP/dfy-release-runtime"
-          pnpm --dir "$RUNNER_TEMP/dfy-release-runtime" add --ignore-scripts --config.node-linker=hoisted --config.minimum-release-age=0 @deepseek-ai/dsh@0.1.5-rc.1
+          pnpm --dir "$RUNNER_TEMP/dfy-release-runtime" add --ignore-scripts --config.node-linker=hoisted --config.minimum-release-age=0 @deepseek-ai/dsh@0.1.7-alpha.1
       - name: Validate runtime compatibility and isolated installation
         run: |
           node scripts/check-runtime-exports.mjs "$RUNNER_TEMP/dfy-release-runtime"

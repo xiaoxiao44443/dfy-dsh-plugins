@@ -15,7 +15,7 @@
 | `export const name` | 简短、稳定的功能名 | `wallpaper` |
 | HTTP API | `/api/dsh-<slug>/...` | `/api/dsh-wallpaper/state` |
 | CSS、DOM、localStorage | `dsh-<slug>-...` | `dsh-wallpaper-card` |
-| 设置命名空间 | 优先 `dsh-<slug>`；已有 ID 保持不变 | `dsh-vision` |
+| 设置配置项 | 新版配置树使用 Cordis ID；旧命名空间仅用于迁移 | `appearance`（从 `dsh-appearance` 导入） |
 | 工具名 | `dfy_<slug>_<action>` | `dfy_vision_analyze`；可见标题 `DFY VISION ANALYZE` |
 | Skill 名 | `dfy-<slug>` | `dfy-vision` |
 | 持久化目录 | `$DSH_HOME/storages/dfy-plugins/<slug>` | `$DSH_HOME/storages/dfy-plugins/wallpaper` |
@@ -35,9 +35,9 @@
 | 插件 | Cordis ID | 设置 ID/命名空间 | API | 数据目录 |
 | --- | --- | --- | --- | --- |
 | `@dfy-plugins/dsh-archive-manager` | `archive-manager` | `archives` | `/api/dsh-archive-manager` | 无独立目录 |
-| `@dfy-plugins/dsh-appearance` | `appearance` | `dsh-appearance` | 无 | 无独立目录 |
+| `@dfy-plugins/dsh-appearance` | `appearance` | `appearance`（旧 `dsh-appearance` 自动导入） | 无 | 无独立目录 |
 | `@dfy-plugins/dsh-wallpaper` | `wallpaper` | `wallpaper` | `/api/dsh-wallpaper` | `storages/dfy-plugins/wallpaper`（自动迁移旧目录） |
 | `@dfy-plugins/dsh-media-blocks` | `media-blocks` | 无 | `/api/dsh-media-blocks` | 图片复用 Harness attachments |
 | `@dfy-plugins/dsh-vision` | `vision` | `dsh-vision` | `/api/dsh-vision` | 无独立目录 |
-| `@dfy-plugins/dsh-image-generation` | `image-generation` | `dsh-image-generation` | `/api/dsh-image-generation` | 图片复用 Harness attachments |
-| `@dfy-plugins/dsh-turn-guard` | `turn-guard` | `dsh-turn-guard` | 无 | 无独立目录 |
+| `@dfy-plugins/dsh-image-generation` | `image-generation` | `image-generation`（旧 `dsh-image-generation` 自动导入） | `/api/dsh-image-generation` | 图片复用 Harness attachments |
+| `@dfy-plugins/dsh-turn-guard` | `turn-guard` | `turn-guard`（旧 `dsh-turn-guard` 自动导入） | 无 | 无独立目录 |

@@ -2,8 +2,8 @@
 import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import {
-  IconChevronDownOutline14,
-  IconCloseOutline16,
+  IconChevronDownOutlineRegular,
+  IconCloseOutlineRegular,
   Menu,
   type MenuItem,
 } from '@deepseek-ai/dsh-client-ui-primitives';
@@ -721,7 +721,7 @@ function WallpaperSelect<T extends string>({
           onClick={() => setOpen((current) => !current)}
         >
           <span>{selectedLabel}</span>
-          <IconChevronDownOutline14 size={16} />
+          <IconChevronDownOutlineRegular size={16} />
         </button>
       )}
     />
@@ -1200,7 +1200,7 @@ function WallpaperFloatingPanel({ controller }: { controller: WallpaperControlle
           aria-label="关闭壁纸设置"
           title="关闭"
         >
-          <IconCloseOutline16 size={14} />
+          <IconCloseOutlineRegular size={14} />
         </button>
       </div>
       <div className="dsh-wallpaper-floating-body">

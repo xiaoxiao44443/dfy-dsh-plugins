@@ -103,7 +103,7 @@ export function installNativePromptBridge(controller: NativeController, deps: Na
       const block = part as { type: string; attachment?: ImageAttachmentRef };
       if (block.type !== 'image' || block.attachment === undefined) return part;
       const attachment = block.attachment;
-      return { type: 'dfy-media', version: 1, resource: { kind: 'image', attachment, ref: encodeMediaImageRef(attachment) } };
+      return { type: 'plugin:dfy-media', version: 1, resource: { kind: 'image', attachment, ref: encodeMediaImageRef(attachment) } };
     }) as ContentBlock[];
     signal.throwIfAborted();
     if (state.owner !== owner || !deps.isLive(agent)) throw attachmentError('会话或媒体插件已重新加载，请重试上传。', 'SESSION_CHANGED');

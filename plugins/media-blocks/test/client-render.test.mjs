@@ -17,13 +17,13 @@ const source = built.outputFiles[0].text;
 const attachment = {
   attachmentId: `sha256:${'a'.repeat(64)}`, mediaType: 'image/png', bytes: 12, width: 1, height: 1, name: '截图.png',
 };
-const media = { type: 'dfy-media', version: 1, resource: { kind: 'image', ref: 'test-ref', attachment } };
+const media = { type: 'plugin:dfy-media', version: 1, resource: { kind: 'image', ref: 'test-ref', attachment } };
 const text = { type: 'text', text: '看看这张图片' };
 
 function render(content, generation) {
   const module = { exports: {} };
   const primitives = {
-    IconCheckOutline16: () => null, IconCopyOutline16: () => null,
+    IconCheckOutlineRegular: () => null, IconCopyOutlineRegular: () => null,
     JsonBlock: ({ payload }) => React.createElement('pre', { 'data-extra-block': true }, JSON.stringify(payload)),
     Tooltip: ({ children }) => children,
     writeClipboard: async () => true,
@@ -56,7 +56,7 @@ function render(content, generation) {
   }));
 }
 
-for (const generation of ['legacy', 'current']) {
+for (const generation of ['current']) {
   test(`${generation} client renders historical media and text without an extra-content block`, () => {
     const html = render([text, media], generation);
     assert.match(html, /dsh-media-gallery/);

@@ -11,10 +11,8 @@ import {
   MIN_CHAT_FONT_SIZE,
   MIN_CHAT_LINE_HEIGHT_RATIO,
   MIN_PROCESS_LINE_HEIGHT_RATIO,
-  customProcessFoldingEnabled,
   normalizeAppearanceSettings,
   planCompletedProcessSegments,
-  processFoldingActivated,
   type AppearanceSettings,
 } from './logic.js';
 
@@ -28,11 +26,7 @@ interface SettingsSnapshot<T> {
 interface SettingsScope<T> {
   getSnapshot(): SettingsSnapshot<T>;
   subscribe(listener: () => void): () => void;
-  set(field: string, value: unknown): Promise<void>;
-}
-
-interface OfficialChatSettings {
-  transcriptView?: 'normal' | 'compact';
+  set(field: string, value: unknown): Promise<boolean>;
 }
 
 interface SlotEntryOptions {
@@ -76,8 +70,6 @@ interface WorkspacesService {
       items: readonly { title: string; path: string }[];
     };
   };
-  /** DSH <= 0.1.1 compatibility; removed from the rc.1 workspace controller. */
-  openPath?(path: string): Promise<void>;
 }
 
 interface ClientCtx {
@@ -89,18 +81,17 @@ interface ClientCtx {
     inject(name: string, register: () => (() => void) | Iterable<() => void>): () => void;
     register(options: SlotEntryOptions, component: unknown): () => void;
   };
-  settingsScope: {
-    bind<T>(spec: { namespace: string }): SettingsScope<T>;
+  configForms: {
+    get<T>(entryId: string): SettingsScope<T>;
   };
 }
 
 export const name = 'appearance';
-export const inject = ['slots', 'settingsScope'];
+export const inject = ['slots', 'configForms'];
 
 const STYLE_ID = '@dfy-plugins/dsh-appearance';
 const BODY_ATTRIBUTE = 'data-dsh-appearance';
-const SETTINGS_NAMESPACE = 'dsh-appearance';
-const OFFICIAL_CHAT_SETTINGS_NAMESPACE = 'ui-chat';
+const SETTINGS_NAMESPACE = 'appearance';
 const MEDIA_CONTENT = 'img, video, audio';
 const IMAGE_PROCESS_CONTENT = 'img, [data-tool="dfy_vision_analyze"]';
 const ARTIFACT_OUTPUT = '[data-dsh-visualization-output], [data-dsh-image-output]';
@@ -252,18 +243,8 @@ async function revealFile(path: string): Promise<void> {
 }
 
 async function openWorkspaceFolder(ctx: ClientCtx, path: string): Promise<void> {
-  const workspaces = ctx.get?.('workspaces') as WorkspacesService | undefined;
-  if (typeof workspaces?.openPath === 'function') {
-    await workspaces.openPath(path);
-    return;
-  }
   const response = await requestDesktopShell(OPEN_FILE_PATH, path);
   if (response.ok) return;
-  // 已安装的旧桌面端还没有 open 接口；至少在资源管理器中定位到该目录。
-  if (response.status === 404) {
-    await revealFile(path);
-    return;
-  }
   throw await shellFailure(response);
 }
 
@@ -362,6 +343,23 @@ body[${BODY_ATTRIBUTE}] :is(
 ) {
   height: auto !important;
   min-height: var(--dsh-appearance-process-line-height) !important;
+}
+/* Own only process visibility while per-response folding is enabled. Do not
+   rewrite the user's official transcript preference; disabling restores it. */
+body[data-dsh-response-folding] :is([data-chat-group-key], [data-step-process-body], [data-step-process-content]) {
+  display: contents !important;
+  content-visibility: visible !important;
+}
+body[data-dsh-response-folding] [data-chat-group-key] > div:first-child,
+body[data-dsh-response-folding] [data-chat-flow-kind='turn-process'] {
+  display: none !important;
+}
+body[data-dsh-response-folding] [data-turn-process-inline],
+body[data-dsh-response-folding] [data-chat-flow-kind]:not([data-chat-flow-kind='turn-process']) {
+  content-visibility: visible !important;
+}
+body[data-dsh-response-folding] [data-chat-flow-kind][hidden]:not([data-chat-flow-kind='turn-process']):not([data-dsh-appearance-collapsed='true']) {
+  display: block !important;
 }
 [data-dsh-appearance-process][data-dsh-appearance-collapsed='true'] {
   display: none !important;
@@ -484,74 +482,19 @@ function installPreferences(scope: SettingsScope<Partial<AppearanceSettings>>): 
   };
 }
 
-/**
- * Alpha.1 introduced a whole-Turn Compact disclosure. Appearance owns a
- * finer per-response disclosure, so disable Compact whenever that disclosure
- * is enabled (including its initial enabled state). Older Harness versions
- * expose no ui-chat namespace and keep the existing behavior. A later explicit
- * user choice is not fought until the plugin disclosure is toggled off and on.
- */
-function installOfficialTranscriptCompatibility(
-  appearanceScope: SettingsScope<Partial<AppearanceSettings>>,
-  officialScope: SettingsScope<OfficialChatSettings>,
-): () => void {
-  let disposed = false;
-  let previouslyEnabled: boolean | undefined;
-  let pendingEnable = false;
-  let writing = false;
-  const reconcile = (): void => {
-    if (disposed) return;
-    const appearanceSnapshot = appearanceScope.getSnapshot();
-    if (appearanceSnapshot.status !== 'ready') return;
-    const enabled = normalizeAppearanceSettings(
-      appearanceSnapshot.value,
-    ).collapseCompletedProcess;
-    if (previouslyEnabled === undefined || enabled !== previouslyEnabled) {
-      pendingEnable = processFoldingActivated(previouslyEnabled, enabled);
-      previouslyEnabled = enabled;
-    }
-    if (!pendingEnable || writing) return;
-
-    const officialSnapshot = officialScope.getSnapshot();
-    if (officialSnapshot.status === 'loading') return;
-    if (officialSnapshot.value?.transcriptView !== 'compact') {
-      pendingEnable = false;
-      return;
-    }
-    if (!officialSnapshot.writable) return;
-    pendingEnable = false;
-    writing = true;
-    void officialScope.set('transcriptView', 'normal')
-      .catch((cause: unknown) => {
-        console.warn('[appearance] failed to disable the built-in Compact transcript', cause);
-      })
-      .finally(() => {
-        writing = false;
-        reconcile();
-      });
-  };
-  const unsubscribers = [
-    appearanceScope.subscribe(reconcile),
-    officialScope.subscribe(reconcile),
-  ];
-  reconcile();
-  return () => {
-    disposed = true;
-    for (const unsubscribe of unsubscribers) unsubscribe();
-  };
-}
-
 function turnFlowGroups(): HTMLElement[][] {
-  const parents = new Set([...document.querySelectorAll<HTMLElement>('[data-chat-flow-kind]')]
-    .flatMap((row) => row.parentElement === null ? [] : [row.parentElement]));
+  // 0.1.7 keeps process members under stable group containers. Read logical
+  // turn order across those containers instead of treating each as a turn.
+  const parents = [...document.querySelectorAll<HTMLElement>('[data-chat-flow]')]
+    .filter((flow) => flow.closest('[data-chat-group-key]') === null);
   const groups: HTMLElement[][] = [];
   for (const parent of parents) {
     let rows: HTMLElement[] = [];
     let turn: string | undefined;
-    for (const row of parent.children) {
+    for (const row of parent.querySelectorAll<HTMLElement>('[data-chat-flow-kind]')) {
       if (!(row instanceof HTMLElement)) continue;
       const kind = row.dataset.chatFlowKind;
-      if (kind === undefined) continue;
+      if (kind === undefined || kind === 'turn-process') continue;
       const nextTurn = row.dataset.chatTurn;
       if (kind === 'user' || kind === 'turn-tail'
         || (turn !== undefined && nextTurn !== undefined && turn !== nextTurn)) {
@@ -577,7 +520,7 @@ function removeFlowMarkers(rows: readonly HTMLElement[]): void {
 }
 
 function flowNodeHasOutput(row: HTMLElement): boolean {
-  if (row.dataset.chatFlowKind === 'assistant-step') {
+  if (row.dataset.chatFlowKind === 'assistant-step' && row.dataset.chatGroupPart !== 'reasoning') {
     const copy = row.cloneNode(true) as HTMLElement;
     for (const reasoning of copy.querySelectorAll('[data-variant="think"]')) reasoning.remove();
     return (copy.textContent ?? '').trim().length > 0 || copy.querySelector(MEDIA_CONTENT) !== null;
@@ -611,7 +554,7 @@ function installArtifactPromotion(
   const host = document.createElement('div');
   host.className = 'dsh-appearance-artifacts';
   host.dataset.dshAppearanceArtifacts = marker;
-  outputRow.after(host);
+  (outputRow.closest('[data-chat-group-key]') ?? outputRow).after(host);
   const moved = contents.map((content) => {
     const placeholder = document.createComment('dsh-artifact-content');
     content.before(placeholder);
@@ -708,7 +651,8 @@ function installSegmentDisclosure(
   const chevron = createDisclosureChevron();
   button.append(label, chevron);
   host.append(button);
-  (processRows[0] ?? outputRow).before(host);
+  const firstRow = processRows[0] ?? outputRow;
+  (firstRow.closest('[data-chat-group-key]') ?? firstRow).before(host);
   let expanded = expandedOutputs.has(outputRow);
   const update = (): void => {
     const collapsed = String(!expanded);
@@ -770,7 +714,6 @@ function mutationChangesTurnFlow(mutation: MutationRecord, knownOutputs: WeakSet
 
 function installTurnLayouts(
   scope: SettingsScope<Partial<AppearanceSettings>>,
-  officialChatScope: SettingsScope<OfficialChatSettings>,
 ): () => void {
   let frame: number | undefined;
   let disclosureDisposers: Array<() => void> = [];
@@ -806,15 +749,8 @@ function installTurnLayouts(
       promotion.dispose();
       promotions.delete(marker);
     }
-    const officialSnapshot = officialChatScope.getSnapshot();
-    const officialTranscriptView = officialSnapshot.status === 'ready'
-      ? officialSnapshot.value?.transcriptView
-      : undefined;
-    const collapseProcess = officialSnapshot.status !== 'loading'
-      && customProcessFoldingEnabled(
-        readSettings(scope).collapseCompletedProcess,
-        officialTranscriptView,
-      );
+    const collapseProcess = readSettings(scope).collapseCompletedProcess;
+    document.body.toggleAttribute('data-dsh-response-folding', collapseProcess);
     for (const segment of segments) {
       reconcileArtifactPromotion(promotions, segment.marker, segment.outputRow, segment.artifactRows);
       if (collapseProcess) disclosureDisposers.push(installSegmentDisclosure(
@@ -826,14 +762,14 @@ function installTurnLayouts(
       characterData: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['data-chat-flow-kind', 'data-chat-turn', 'data-turn-tail'],
+      attributeFilter: ['data-chat-flow-kind', 'data-chat-turn', 'data-turn-tail', 'data-chat-group-part'],
     });
   };
   refresh();
   const scheduleRefresh = (): void => {
     if (frame === undefined) frame = window.requestAnimationFrame(refresh);
   };
-  const unsubscribers = [scope.subscribe(scheduleRefresh), officialChatScope.subscribe(scheduleRefresh)];
+  const unsubscribers = [scope.subscribe(scheduleRefresh)];
 
   return () => {
     for (const unsubscribe of unsubscribers) unsubscribe();
@@ -842,6 +778,7 @@ function installTurnLayouts(
     for (const dispose of disclosureDisposers.reverse()) dispose();
     for (const promotion of promotions.values()) promotion.dispose();
     promotions.clear();
+    document.body.removeAttribute('data-dsh-response-folding');
   };
 }
 
@@ -1072,20 +1009,10 @@ function AppearancePage({ scope }: { scope: SettingsScope<Partial<AppearanceSett
 }
 
 export function apply(ctx: ClientCtx): void {
-  const scope = ctx.settingsScope.bind<Partial<AppearanceSettings>>({ namespace: SETTINGS_NAMESPACE });
-  const officialChatScope = ctx.settingsScope.bind<OfficialChatSettings>({
-    namespace: OFFICIAL_CHAT_SETTINGS_NAMESPACE,
-  });
+  const scope = ctx.configForms.get<Partial<AppearanceSettings>>(SETTINGS_NAMESPACE );
   ctx.effect(installStyles, 'dsh-appearance: client styles');
   ctx.effect(() => installPreferences(scope), 'dsh-appearance: apply preferences');
-  ctx.effect(
-    () => installOfficialTranscriptCompatibility(scope, officialChatScope),
-    'dsh-appearance: disable built-in compact transcript',
-  );
-  ctx.effect(
-    () => installTurnLayouts(scope, officialChatScope),
-    'dsh-appearance: per-response layouts',
-  );
+  ctx.effect(() => installTurnLayouts(scope), 'dsh-appearance: per-response layouts');
   ctx.inject(['desktopContextMenu'], (menuCtx) => {
     menuCtx.effect(() => installFileLinkContextMenu(menuCtx), 'dsh-appearance: file link context menu');
   });

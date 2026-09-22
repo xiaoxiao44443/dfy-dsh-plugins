@@ -50,7 +50,8 @@ test('bridge preserves structured results across legacy and PTC child call ids',
         return { value: 'outer textual wrapper' };
       },
     },
-    settings: { register: () => ({ get: () => ({ enabled: true }), watch: () => {} }) },
+    settings: { configure: () => () => {} },
+    root: { get: () => ({ await: () => new Promise(() => {}) }) },
     webServer: { register() {} },
     effect: (setup) => { cleanup = setup(); },
   };
@@ -64,7 +65,7 @@ test('bridge preserves structured results across legacy and PTC child call ids',
     }
     await rm(root, { recursive: true, force: true });
   });
-  apply(ctx);
+  apply(ctx, { enabled: { get: () => true } });
   let endpoint;
   for (let attempt = 0; attempt < 100; attempt++) {
     try { endpoint = JSON.parse(await readFile(discovery, 'utf8')); break; } catch { await setTimeout(10); }

@@ -5,29 +5,28 @@
 ## 公共库
 
 - [`@dfy-plugins/resource-core`](packages/resource-core)：普通 npm 库，提供版本化不透明资源引用、进程内 provider 注册表和安全文本降级；它不是 Harness 插件。
-- [`@dfy-plugins/image-protocol`](packages/image-protocol)：普通 npm 库，提供 rc.8 官方图片块、Attachment 图片引用、格式识别和图片结果降级；它不是 Harness 插件。
+- [`@dfy-plugins/image-protocol`](packages/image-protocol)：普通 npm 库，提供官方图片块、Attachment 图片引用、格式识别和图片结果降级；它不是 Harness 插件。
 
 插件可以独立发布并声明这些库为普通依赖。进程内注册表使用稳定的 `Symbol.for` ABI，因此各插件即使各自打包了一份 `resource-core`，仍共享 provider，不需要依赖 media-blocks 的私有协议。
 
 ## 插件
 
+- [`@dfy-plugins/dsh-bundle`](plugins/bundle)：包含以下 8 个维护中插件的原生组合包，一次安装、统一更新，在官方详情页分别启停；也可继续单独安装。
+
 - [`@dfy-plugins/dsh-archive-manager`](plugins/archive-manager)：按项目查看已归档对话，支持取消归档和永久删除。
 - [`@dfy-plugins/dsh-appearance`](plugins/appearance)：在设置侧栏提供独立“外观”页，每段回复出现时收起前面的过程轨迹，并可调节对话字号。
 - [`@dfy-plugins/dsh-wallpaper`](plugins/wallpaper)：为 Harness 设置可配置图片背景，支持多种适应模式、模糊、遮罩和界面透明度。
 - [`@dfy-plugins/dsh-media-blocks`](plugins/media-blocks)：提供持久聊天媒体块和可扩展的多媒体展示；上传入口使用 DSH 自带的附件按钮，不再添加重复的图片按钮。图片基础协议来自公共库，未来视频、网页等块仍可通过 `MediaResourceMap` 扩展。
-- [`@dfy-plugins/dsh-vision`](plugins/vision)：通过独立视觉路由为文本模型分析图片，主会话只接收文字结果。
+- [`@dfy-plugins/dsh-vision`](plugins/vision)：已停止维护，仅保留历史源码。
 - [`@dfy-plugins/dsh-image-generation`](plugins/image-generation)：通过按需 Skill 和固定工具调用独立图片模型，支持官方图片块、参考图编辑与 Tool 内图片预览；media-blocks 为可选增强。
 - [`@dfy-plugins/dsh-visualize`](plugins/visualize)：通过 `dfy-visualize` Skill 和 `dfy_visualize_render` 工具，将工作区 HTML 安全发布为对话内可交互的会话级可视化产物。
 - [`@dfy-plugins/dsh-codex-bridge`](plugins/codex-bridge)：通过本机鉴权 MCP 将 Harness 会话、工具与 Skills 提供给 Codex；DSH 端与 Codex 伴生插件分别安装。
 - [`@dfy-plugins/dsh-turn-guard`](plugins/turn-guard)：为单轮任务提供收敛提醒、重复调用检测和可配置的硬停止预算。
 
-插件的 peer 范围已加入 `0.1.5-alpha.1`，但该版本的完整适配仍在进行，
-不能把安装成功或构建通过当作全部功能兼容。开发依赖保留 `0.1.1-rc.2`，
-目前已适配持久化快照、最新日志代读取、媒体文字渲染和 PTC 工具结果关联；
-桥接审批、实时流式输出、原生上传转接及 PTC 图片引用已完成代码修复和回归验证。
-真实模型调用和完整界面操作仍需在新版客户端验收。
-各插件的验证范围和未完成事项见[兼容检查记录](docs/compatibility-0.1.5-alpha.1.md)。
-本轮版本号及功能变化见 [DSH 0.1.5-alpha.1 配套更新说明](docs/releases/dsh-0.1.5-alpha.1.md)。
+当前维护版本最低要求 **DSH 0.1.7-alpha.1**，开发依赖固定到该版本，不再保留旧运行时 API 的兼容分支。
+外观插件继续提供逐段折叠；旧设置迁入新版配置树，旧对话由桌面端的历史内容准入修复和官方 V4 迁移共同处理。
+视觉理解插件停止更新，保留历史源码，但从工作区构建、npm 发布批次和桌面插件目录移除；图片识别使用模型原生多模态能力。
+验证范围见 [0.1.7-alpha.1 适配记录](docs/compatibility-0.1.7-alpha.1.md)。
 
 所有发布包使用 `@dfy-plugins` npm scope；运行时 ID、API、CSS 和持久化目录按各自的兼容性要求命名，
 不会随包名做全局替换。新增或修改插件前请先阅读：
@@ -79,11 +78,10 @@ dsh plugin --profile web add ./plugins/appearance
 dsh plugin --profile web add ./plugins/wallpaper
 ```
 
-本地安装视觉插件：
+本地安装媒体内容插件：
 
 ```bash
 dsh plugin --profile web add ./plugins/media-blocks
-dsh plugin --profile web add ./plugins/vision
 ```
 
 本地安装图像生成插件：

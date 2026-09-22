@@ -15,7 +15,7 @@ interface SettingsSnapshot<T> {
 interface SettingsScope<T> {
   getSnapshot(): SettingsSnapshot<T>;
   subscribe(listener: () => void): () => void;
-  set(field: string, value: unknown): Promise<void>;
+  set(field: string, value: unknown): Promise<boolean>;
 }
 
 interface SlotEntryOptions {
@@ -31,15 +31,15 @@ interface ClientCtx {
     inject(name: string, register: () => (() => void) | Iterable<() => void>): () => void;
     register(options: SlotEntryOptions, component: unknown): () => void;
   };
-  settingsScope: {
-    bind<T>(spec: { namespace: string }): SettingsScope<T>;
+  configForms: {
+    get<T>(entryId: string): SettingsScope<T>;
   };
 }
 
 export const name = 'turn-guard';
-export const inject = ['slots', 'settingsScope'];
+export const inject = ['slots', 'configForms'];
 
-const SETTINGS_NAMESPACE = 'dsh-turn-guard';
+const SETTINGS_NAMESPACE = 'turn-guard';
 const STYLE_ID = '@dfy-plugins/dsh-turn-guard';
 
 const STYLES = `
@@ -254,7 +254,7 @@ function TurnGuardPage({ scope }: { scope: SettingsScope<Partial<TurnGuardSettin
 }
 
 export function apply(ctx: ClientCtx): void {
-  const scope = ctx.settingsScope.bind<Partial<TurnGuardSettings>>({ namespace: SETTINGS_NAMESPACE });
+  const scope = ctx.configForms.get<Partial<TurnGuardSettings>>(SETTINGS_NAMESPACE );
   ctx.effect(installStyles, 'dsh-turn-guard: client styles');
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',

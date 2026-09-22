@@ -3,7 +3,9 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2023"],
+    "lib": [
+      "ES2023"
+    ],
     "strict": true,
     "declaration": true,
     "outDir": "lib",
@@ -11,7 +13,14 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmitOnError": true
+    "noEmitOnError": true,
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/index.ts", "src/logic.ts", "src/runs.ts"]
+  "include": [
+    "src/index.ts",
+    "src/logic.ts",
+    "src/runs.ts"
+  ]
 }

@@ -7,7 +7,7 @@ import type {} from '@deepseek-ai/dsh-fs';
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver';
 import type { ContentBlock } from '@deepseek-ai/dsh-llm';
 import type {} from '@deepseek-ai/dsh-session-persistence';
-import type { SettingsNamespace } from '@deepseek-ai/dsh-settings';
+import { configureSettings, readLiveConfig, watchLiveConfig, type LiveConfig } from '@dfy-plugins/resource-core/settings';
 import type {} from '@deepseek-ai/dsh-skill';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 import type { GenericCallView, ToolResult, ToolRunContext } from '@deepseek-ai/dsh-tools';
@@ -43,9 +43,9 @@ import {
 } from './logic.js';
 
 export const name = 'image-generation';
-export const inject = ['tools', 'attachments', 'credentials', 'fs', 'skills', 'sessionPersistence'];
+export const inject = ['tools', 'attachments', 'credentials', 'fs', 'skills', 'sessionPersistence', 'settings'];
 
-export interface Config {
+interface Settings {
   enabled?: boolean;
   baseUrl?: string;
   model?: string;
@@ -53,15 +53,17 @@ export interface Config {
   size?: string;
 }
 
-export const Config: z<Config> = z.object({
-  enabled: z.boolean().default(false),
-  baseUrl: z.string().default(''),
-  model: z.string().default(''),
-  quality: z.string().default('auto'),
-  size: z.string().default('auto'),
+export type Config = LiveConfig<Settings>;
+
+export const Config = z.object({
+  enabled: z.boolean().default(false).volatile(),
+  baseUrl: z.string().default('').volatile(),
+  model: z.string().default('').volatile(),
+  quality: z.string().default('auto').volatile(),
+  size: z.string().default('auto').volatile(),
 });
 
-const SETTINGS_NS = 'dsh-image-generation' as SettingsNamespace;
+const SETTINGS_NS = 'dsh-image-generation';
 const STATUS_API = '/api/dsh-image-generation/status';
 const RESOURCE_API = '/api/dsh-image-generation/resource';
 const TOOL_NAME = 'dfy_image_generate';
@@ -101,7 +103,7 @@ interface LegacyGeneratedImageValue {
 }
 
 interface SessionImageBlock {
-  type: 'dfy-session-image';
+  type: 'plugin:dfy-session-image';
   version: 1;
   ref: string;
   image: SessionImageRef;
@@ -109,11 +111,11 @@ interface SessionImageBlock {
 
 declare module '@deepseek-ai/dsh-llm' {
   interface ContentBlockMap {
-    'dfy-session-image': SessionImageBlock;
+    'plugin:dfy-session-image': SessionImageBlock;
   }
 }
 
-function resolveConfig(config: Config): ResolvedConfig {
+function resolveConfig(config: Settings): ResolvedConfig {
   return {
     enabled: config.enabled ?? false,
     baseUrl: config.baseUrl?.trim() ?? '',
@@ -473,7 +475,7 @@ function presentGeneratedImages(result: ToolResult) {
   if (result.isError || !isPresentationMeta(result.meta)) return undefined;
   const content: ContentBlock[] = result.meta.images.flatMap((image) => {
     if (isSessionGeneratedImage(image)) return [{
-        type: 'dfy-session-image',
+        type: 'plugin:dfy-session-image',
         version: 1,
         ref: image.ref,
         image: image.image,
@@ -487,7 +489,7 @@ function presentGeneratedImages(result: ToolResult) {
   return { card: 'generic' as const, content };
 }
 
-function createImageTool(ctx: Context, current: () => Config, rememberedSessionDirs: Map<string, string>) {
+function createImageTool(ctx: Context, current: () => Settings, rememberedSessionDirs: Map<string, string>) {
   return defineTool({
     name: TOOL_NAME,
     description: 'Generate or edit images with the configured dedicated image route. Before every call, load the dfy-image-generation Skill and follow it.',
@@ -621,7 +623,8 @@ async function readJsonBody(req: Parameters<WebRoute['handler']>[0], limit = 16_
 
 export function apply(ctx: Context, entryConfig: Config): void {
   const rememberedSessionDirs = new Map<string, string>();
-  let source = () => entryConfig;
+  configureSettings(ctx, 'image-generation', SETTINGS_NS);
+  const source = () => readLiveConfig<Settings>(entryConfig);
   let activation: Activation = { status: 'unconfigured' };
   let generation = 0;
   let disposeTool: (() => void) | undefined;
@@ -689,16 +692,7 @@ export function apply(ctx: Context, entryConfig: Config): void {
   };
 
   void refresh();
-  ctx.inject(['settings'], (settingsCtx) => {
-    const scope = settingsCtx.settings.register(SETTINGS_NS, Config, { base: entryConfig });
-    let latest = scope.get();
-    source = () => latest;
-    void refresh();
-    scope.watch((next) => {
-      latest = next;
-      void refresh();
-    });
-  });
+  watchLiveConfig(ctx, () => { void refresh(); });
 
   ctx.on('credentials/reference-updated', (ref) => {
     if (ref === IMAGE_API_KEY_REF) void refresh();

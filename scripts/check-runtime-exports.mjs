@@ -1,7 +1,7 @@
 // Check the JavaScript actually shipped by DSH, including frontend-only modules
-// that cannot be checked by compiling against the older development SDK.
+// that need checking against the actual frontend module bundle.
 // This checks named imports, not service behavior, slot props, CSS, or UI flows.
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,8 +10,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const runtime = process.argv[2] && resolve(process.argv[2]);
 if (!runtime) throw new Error('Usage: node scripts/check-runtime-exports.mjs <DSH runtime directory containing node_modules>');
 const ts = createRequire(join(root, 'plugins/media-blocks/package.json'))('typescript');
-const sdk = join(runtime, 'node_modules/@deepseek-ai');
-const version = JSON.parse(readFileSync(join(sdk, 'dsh/package.json'), 'utf8')).version;
+const runtimeRequire = createRequire(createRequire(join(runtime, 'package.json')).resolve('@deepseek-ai/dsh/package.json'));
+const packageDir = (name) => dirname(runtimeRequire.resolve(`@deepseek-ai/${name}/package.json`));
+const version = JSON.parse(readFileSync(join(packageDir('dsh'), 'package.json'), 'utf8')).version;
 const cache = new Map();
 function parse(file) {
   if (!cache.has(file)) cache.set(file, ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true));
@@ -32,7 +33,7 @@ function files(dir) {
 // The frontend loader registers these module namespaces in its built-in map.
 // Resolve that map and the exported object with an AST, without executing UI JS.
 const bundled = new Map();
-const assets = join(sdk, 'dsh-web-frontend/dist/assets');
+const assets = join(packageDir('dsh-web-frontend'), 'dist/assets');
 for (const file of readdirSync(assets).filter((name) => name.endsWith('.js'))) {
   const source = readFileSync(join(assets, file), 'utf8');
   if (!source.includes('"@deepseek-ai/dsh-client-ui-primitives"')) continue;
@@ -63,7 +64,7 @@ if (!bundled.has('@deepseek-ai/dsh-client-ui-primitives')) {
 
 function runtimeEntry(specifier) {
   const parts = specifier.split('/');
-  const pkgDir = join(sdk, parts[1]);
+  const pkgDir = packageDir(parts[1]);
   const manifest = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
   let target = manifest.exports?.[parts.length === 2 ? '.' : `./${parts.slice(2).join('/')}`];
   if (parts.length === 2 && !target) target = manifest.main;
@@ -107,9 +108,12 @@ let failures = 0;
 let total = 0;
 for (const group of ['packages', 'plugins']) {
   for (const entry of readdirSync(join(root, group), { withFileTypes: true }).filter((entry) => entry.isDirectory())) {
+    if (group === 'plugins' && entry.name === 'vision') continue; // Retired; keep its old source unchanged.
     let checked = 0;
     let namespaces = 0;
-    for (const file of files(join(root, group, entry.name, 'src')).filter((file) => /\.tsx?$/.test(file))) {
+    const source = join(root, group, entry.name, 'src');
+    if (!existsSync(source)) continue; // Pure composition packages have no Host/Client imports.
+    for (const file of files(source).filter((file) => /\.tsx?$/.test(file))) {
       for (const node of parse(file).statements) {
         if (!ts.isImportDeclaration(node) || !ts.isStringLiteral(node.moduleSpecifier)) continue;
         const specifier = node.moduleSpecifier.text;

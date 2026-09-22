@@ -14,7 +14,7 @@ test('media blocks keeps package, Cordis, API and content ids intentionally sepa
 
   assert.equal(JSON.parse(pkg).name, '@dfy-plugins/dsh-media-blocks');
   assert.match(patch, /id: media-blocks\r?\n\s+name: '@dfy-plugins\/dsh-media-blocks'/);
-  assert.match(host, /MEDIA_BLOCK_TYPE = 'dfy-media'/);
+  assert.match(host, /MEDIA_BLOCK_TYPE = 'plugin:dfy-media'/);
   assert.match(host, /MEDIA_PROMPT_API = '\/api\/dsh-media-blocks\/prompt'/);
   assert.match(host, /message: `Model "\$\{payload\.selection\.model\}" does not support image input\.`/);
   assert.match(host, /details: \{ reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' \}/);
@@ -23,8 +23,6 @@ test('media blocks keeps package, Cordis, API and content ids intentionally sepa
   assert.match(client, /ctx\.effect\(installStyles, 'dsh-media-blocks: client styles'\)/);
   assert.match(client, /existing\.replaceWith\(tag\)/);
   assert.doesNotMatch(client, /<style>\{STYLES\}<\/style>/);
-  assert.match(client, /connection: \{ api\?: LegacyApiClient \}/);
-  assert.match(client, /if \(api === undefined\) return \(\) => \{\};/);
   assert.doesNotMatch(client, /ResizeObserver/);
-  assert.match(client, /locale: 'conversation'/);
+  assert.match(client, /locale: 'chat'/);
 });

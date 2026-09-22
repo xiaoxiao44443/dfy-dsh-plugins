@@ -1,7 +1,7 @@
 # npm 发布
 
 仓库统一使用 `@dfy-plugins` scope。发布单位是 `packages/*` 的两个公共库和
-`plugins/*` 的九个插件；根目录保留 `private: true`。
+`plugins/*` 的八个维护中插件和一个组合包；根目录保留 `private: true`，视觉理解不再发布。
 
 ## 首次发布
 
@@ -25,7 +25,7 @@ pnpm release:dry-run
 ```
 
 最后一条只预演，不上传。`release:test-install` 的参数也可以是其他含
-`node_modules/@deepseek-ai/dsh` 的 DSH 0.1.5-rc.1 运行时目录。
+`node_modules/@deepseek-ai/dsh` 的 DSH 0.1.7-alpha.1 运行时目录。
 测试使用临时 `DSH_HOME`，实际调用官方安装和移除命令、合成 Profile 配置，
 并从安装后的包导入服务端入口；不启动模型，也不改动正在使用的 Profile。
 首次发布前公共库尚不在 npm，测试仅在临时 Profile 中将内部依赖指向同批次归档。
@@ -37,7 +37,7 @@ pnpm release:dry-run
 pnpm release:publish
 ```
 
-首次发布完成后，再从 npm 实际安装验证依赖解析（只安装九个插件，公共库自动下载）：
+首次发布完成后，再从 npm 实际安装验证独立插件和组合包两种形式的依赖解析：
 
 ```bash
 pnpm release:test-install ../dfy-dsh-desktop/build/harness-runtime --registry
@@ -87,10 +87,19 @@ pnpm release:test-install ../dfy-dsh-desktop/build/harness-runtime --registry
 dsh plugin --profile web add @dfy-plugins/dsh-wallpaper
 ```
 
-一次安装全部插件（也可以重复执行来更新和补装）：
+新安装推荐组合包，重复执行可更新整包：
 
 ```bash
-dsh plugin --profile web add @dfy-plugins/dsh-appearance@latest @dfy-plugins/dsh-archive-manager@latest @dfy-plugins/dsh-codex-bridge@latest @dfy-plugins/dsh-media-blocks@latest @dfy-plugins/dsh-image-generation@latest @dfy-plugins/dsh-turn-guard@latest @dfy-plugins/dsh-vision@latest @dfy-plugins/dsh-visualize@latest @dfy-plugins/dsh-wallpaper@latest
+dsh plugin --profile web add @dfy-plugins/dsh-bundle@latest
+```
+
+组合包固定到同批次验证过的插件版本；组件更新时需同步增加组合包版本再发布。
+不要与内部插件的单独安装同时启用，已有安装的迁移说明见 [组合包](../plugins/bundle)。
+
+也可以保持独立安装（与组合包二选一）：
+
+```bash
+dsh plugin --profile web add @dfy-plugins/dsh-appearance@latest @dfy-plugins/dsh-archive-manager@latest @dfy-plugins/dsh-codex-bridge@latest @dfy-plugins/dsh-media-blocks@latest @dfy-plugins/dsh-image-generation@latest @dfy-plugins/dsh-turn-guard@latest @dfy-plugins/dsh-visualize@latest @dfy-plugins/dsh-wallpaper@latest
 ```
 
 只更新已经安装的 DFY 包：

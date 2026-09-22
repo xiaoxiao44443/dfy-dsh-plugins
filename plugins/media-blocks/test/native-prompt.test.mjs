@@ -42,7 +42,7 @@ test('native image fallback preserves mixed files, steering, time zone and retry
   assert.equal(f.deliveries.length, 1);
   const [mode, message] = f.deliveries[0];
   assert.equal(mode, 'steer'); assert.equal(message.source.rpcId, 'r1'); assert.equal(message.source.clientTimeZone, 'Asia/Shanghai');
-  assert.deepEqual(message.content.map(p => p.type), ['text', 'dfy-media', 'file']);
+  assert.deepEqual(message.content.map(p => p.type), ['text', 'plugin:dfy-media', 'file']);
   assert.deepEqual(f.bindings, [{ receipts: ['owned'], requestId: 'r1', committed: true, disposed: true }]);
 });
 
