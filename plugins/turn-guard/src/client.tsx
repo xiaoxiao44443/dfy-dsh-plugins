@@ -1,5 +1,6 @@
 /** @dfy-plugins/dsh-turn-guard Client half: settings page. */
 import React from 'react';
+import { Switch } from '@deepseek-ai/dsh-client-ui-primitives';
 import {
   normalizeTurnGuardSettings,
   type TurnGuardSettings,
@@ -65,14 +66,6 @@ const STYLES = `
 .dsh-turn-guard-copy { min-width: 0; flex: 1; }
 .dsh-turn-guard-title { color: var(--dsw-alias-label-primary); font-size: 14px; font-weight: 500; line-height: 22px; }
 .dsh-turn-guard-description { margin-top: 2px; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 18px; }
-.dsh-turn-guard-switch { position: relative; width: 32px; height: 20px; flex: none; }
-.dsh-turn-guard-switch input { position: absolute; opacity: 0; pointer-events: none; }
-.dsh-turn-guard-switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--dsw-alias-bg-module-platform, rgba(127,127,127,.28)); transition: background .14s ease; }
-.dsh-turn-guard-switch span::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: white; box-shadow: 0 1px 3px rgba(0,0,0,.16); transition: transform .14s ease; }
-.dsh-turn-guard-switch input:checked + span { background: var(--dsw-alias-state-business-primary); }
-.dsh-turn-guard-switch input:checked + span::after { transform: translateX(12px); }
-.dsh-turn-guard-switch input:focus-visible + span { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
-.dsh-turn-guard-switch input:disabled + span { opacity: .48; }
 .dsh-turn-guard-number {
   width: 70px; min-height: 32px; box-sizing: border-box; flex: none; padding: 5px 8px;
   border: 1px solid var(--dsw-alias-border-l2); border-radius: 9px;
@@ -100,26 +93,6 @@ function installStyles(): () => void {
   if (existing === null) document.head.appendChild(tag);
   else existing.replaceWith(tag);
   return () => tag.remove();
-}
-
-function Switch({ checked, disabled, label, onChange }: {
-  checked: boolean;
-  disabled: boolean;
-  label: string;
-  onChange(value: boolean): void;
-}): React.ReactElement {
-  return (
-    <label className="dsh-turn-guard-switch">
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        aria-label={label}
-        onChange={(event) => onChange(event.currentTarget.checked)}
-      />
-      <span />
-    </label>
-  );
 }
 
 function NumberField({ value, min, max, unit, disabled, label, onCommit }: {

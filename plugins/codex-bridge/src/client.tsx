@@ -1,6 +1,7 @@
-/** DSH Client half: settings card for the local Codex bridge. */
+/** DSH Client half: plugin-manager settings page for the local Codex bridge. */
 import React from 'react';
-import { IconChevronDownOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
+import type { PluginConfigViewProps } from '@deepseek-ai/dsh-client-ui-plugin-manager/client';
+import { Button, Switch } from '@deepseek-ai/dsh-client-ui-primitives';
 
 interface BridgeSettings {
   enabled?: boolean;
@@ -51,42 +52,20 @@ const STATUS_PATH = '/api/dsh-codex-bridge/status';
 const STYLE_ID = '@dfy-plugins/dsh-codex-bridge';
 
 const STYLES = `
-.dsh-codex-card { overflow: hidden; list-style: none; border: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.22)); border-radius: 12px; background: var(--dsw-alias-bg-layer-3, rgba(255,255,255,.92)); color: var(--dsw-alias-label-primary, inherit); transition: border-color .16s, background .16s; }
-.dsh-codex-card:hover, .dsh-codex-card[data-open] { border-color: var(--dsw-alias-label-dimmed, rgba(127,127,127,.42)); }
-.dsh-codex-card[data-open] { background: var(--dsw-alias-bg-layer-2, rgba(255,255,255,.82)); }
-.dsh-codex-head { display: flex; width: 100%; appearance: none; align-items: center; gap: 12px; padding: 14px 16px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.dsh-codex-head:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #298df8); outline-offset: -2px; }
-.dsh-codex-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
-.dsh-codex-title { color: var(--dsw-alias-label-primary, inherit); font-size: 15px; font-weight: 600; line-height: 1.4; }
-.dsh-codex-description, .dsh-codex-hint { color: var(--dsw-alias-label-tertiary, rgba(127,127,127,.86)); font-size: 13px; line-height: 1.5; }
-.dsh-codex-badge { max-width: 220px; overflow: hidden; padding: 3px 9px; border-radius: 999px; background: var(--dsw-alias-bg-module-platform, rgba(127,127,127,.1)); color: var(--dsw-alias-label-secondary, inherit); font-size: 12px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
-.dsh-codex-chevron { flex: none; color: var(--dsw-alias-label-tertiary, rgba(127,127,127,.86)); transition: transform .16s; }
-.dsh-codex-chevron[data-open] { transform: rotate(180deg); }
-.dsh-codex-switch { position: relative; width: 32px; height: 20px; flex: none; }
-.dsh-codex-switch input { position: absolute; opacity: 0; }
-.dsh-codex-switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--dsw-alias-bg-module-platform, rgba(127,127,127,.18)); cursor: pointer; transition: background 120ms ease; }
-.dsh-codex-switch span::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: white; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform 120ms ease; }
-.dsh-codex-switch input:checked + span { background: var(--dsw-alias-state-business-primary, var(--dsw-alias-brand-primary, #298df8)); }
-.dsh-codex-switch input:checked + span::after { transform: translateX(12px); }
-.dsh-codex-switch input:focus-visible + span { outline: 2px solid var(--dsw-alias-state-business-primary, var(--dsw-alias-brand-primary, #298df8)); outline-offset: 2px; }
-.dsh-codex-switch input:disabled + span { cursor: default; opacity: .6; }
-.dsh-codex-body { margin: 0 16px; padding-bottom: 8px; border-top: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.22)); }
-.dsh-codex-field { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; }
-.dsh-codex-field-head { display: flex; align-items: center; gap: 8px; }
-.dsh-codex-label { min-width: 0; flex: 1; color: var(--dsw-alias-label-primary, inherit); font-size: 13px; font-weight: 500; line-height: 1.5; }
-.dsh-codex-statuses { display: grid; gap: 9px; margin: 0 0 14px; }
-.dsh-codex-status { display: flex; align-items: center; justify-content: space-between; gap: 20px; color: var(--dsw-alias-label-secondary, inherit); font-size: 13px; line-height: 1.5; }
-.dsh-codex-status strong { color: var(--dsw-alias-label-primary, inherit); font-weight: 500; }
-.dsh-codex-dot { display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: var(--dsw-alias-label-caption, #999); }
+.dsh-codex-settings { color: var(--dsw-alias-label-primary); }
+.dsh-codex-field { display: flex; align-items: center; gap: 20px; padding: 12px 0 20px; border-bottom: .5px solid var(--dsw-alias-border-l2); }
+.dsh-codex-copy { min-width: 0; flex: 1; }
+.dsh-codex-label { font-size: 13px; font-weight: 500; line-height: 1.5; }
+.dsh-codex-hint { margin: 6px 0 0; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 1.5; }
+.dsh-codex-statuses { display: grid; gap: 12px; margin: 20px 0; }
+.dsh-codex-status { display: flex; align-items: center; justify-content: space-between; gap: 20px; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.5; }
+.dsh-codex-status strong { color: var(--dsw-alias-label-primary); font-weight: 500; }
+.dsh-codex-dot { display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: var(--dsw-alias-label-caption); }
 .dsh-codex-dot[data-state='ok'] { background: var(--dsw-alias-state-success-primary, #2bab75); }
 .dsh-codex-dot[data-state='warn'] { background: var(--dsw-alias-state-warning-primary, #e7a530); }
-.dsh-codex-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 0 4px; border-top: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.22)); }
-.dsh-codex-button { appearance: none; padding: 5px 14px; border: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.22)); border-radius: 8px; background: none; color: var(--dsw-alias-label-secondary, inherit); font: inherit; font-size: 13px; line-height: 1.5; cursor: pointer; }
-.dsh-codex-button:hover:not(:disabled) { border-color: var(--dsw-alias-label-dimmed, rgba(127,127,127,.42)); color: var(--dsw-alias-label-primary, inherit); }
-.dsh-codex-button:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #298df8); outline-offset: 2px; }
-.dsh-codex-button:disabled { cursor: default; opacity: .4; }
-.dsh-codex-message { margin: 10px 0 0; color: var(--dsw-alias-label-tertiary, rgba(127,127,127,.86)); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
-.dsh-codex-message[data-error] { color: var(--dsw-alias-state-error-primary, #d93025); }
+.dsh-codex-actions { margin-top: 16px; }
+.dsh-codex-message { margin: 12px 0 0; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.dsh-codex-message[data-error] { color: var(--dsw-alias-state-error-primary); }
 `;
 
 function installStyles(): () => void {
@@ -99,15 +78,15 @@ function installStyles(): () => void {
   return () => tag.remove();
 }
 
-function BridgeCard({ scope }: { scope: SettingsScope<BridgeSettings> }): React.ReactElement {
+function BridgeSettingsPage({ scope }: { scope: SettingsScope<BridgeSettings> }): React.ReactElement {
   const snapshot = React.useSyncExternalStore(
     (listener) => scope.subscribe(listener),
     () => scope.getSnapshot(),
     () => scope.getSnapshot(),
   );
-  const [open, setOpen] = React.useState(false);
   const [status, setStatus] = React.useState<BridgeStatus | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const enabled = snapshot.value?.enabled ?? true;
   const writable = snapshot.status === 'ready' && snapshot.writable;
@@ -124,70 +103,67 @@ function BridgeCard({ scope }: { scope: SettingsScope<BridgeSettings> }): React.
   }, []);
 
   React.useEffect(() => {
-    if (!open) return undefined;
     void refresh();
     const timer = window.setInterval(() => { void refresh(); }, 3000);
     return () => window.clearInterval(timer);
-  }, [open, refresh]);
+  }, [refresh]);
 
   const toggle = (checked: boolean): void => {
     if (!writable || saving) return;
     setSaving(true);
-    setError(null);
+    setSaveError(null);
     void scope.set('enabled', checked)
-      .then(() => refresh())
-      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : String(reason)))
+      .then((accepted) => {
+        if (!accepted) throw new Error('设置未保存，请刷新后重试。');
+        return refresh();
+      })
+      .catch((reason: unknown) => setSaveError(reason instanceof Error ? reason.message : String(reason)))
       .finally(() => setSaving(false));
   };
 
   const bridgeLabel = !enabled ? '已关闭' : status?.running ? '正在监听本机' : '尚未启动';
   const connectionLabel = status?.mcpConnected ? 'Codex 已连接' : '等待新任务连接';
 
+  if (snapshot.status !== 'ready') return <p className="dsh-codex-message" role="status">{snapshot.status === 'loading' ? '正在加载设置…' : '该插件当前未加载，暂时无法配置。'}</p>;
+
   return (
-    <li className="dsh-codex-card" data-open={open || undefined}>
-      <button type="button" className="dsh-codex-head" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        <span className="dsh-codex-copy">
-          <span className="dsh-codex-title">Codex 连接</span>
-          <span className="dsh-codex-description">让 Codex 使用当前 Harness 会话的工具和 Skills。</span>
-        </span>
-        <span className="dsh-codex-badge">{enabled ? '已启用' : '已关闭'}</span>
-        <IconChevronDownOutlineRegular className="dsh-codex-chevron" data-open={open || undefined} size={16} />
-      </button>
-      {open ? (
-        <div className="dsh-codex-body">
-          <div className="dsh-codex-field">
-            <div className="dsh-codex-field-head">
-              <div className="dsh-codex-label">启用 Codex 连接</div>
-              <label className="dsh-codex-switch" title={enabled ? '关闭 Codex 连接' : '开启 Codex 连接'}>
-                <input type="checkbox" checked={enabled} disabled={!writable || saving} onChange={(event) => toggle(event.target.checked)} />
-                <span />
-              </label>
-            </div>
-            <p className="dsh-codex-hint">关闭后停止本机桥接；再次开启时会自动恢复监听。</p>
-          </div>
-          <div className="dsh-codex-statuses">
-            <div className="dsh-codex-status"><span>本机桥接</span><strong><i className="dsh-codex-dot" data-state={status?.running ? 'ok' : 'warn'} />{bridgeLabel}</strong></div>
-            <div className="dsh-codex-status"><span>活动会话</span><strong>{String(status?.sessions ?? 0)}</strong></div>
-            <div className="dsh-codex-status"><span>MCP 状态</span><strong><i className="dsh-codex-dot" data-state={status?.mcpConnected ? 'ok' : undefined} />{connectionLabel}</strong></div>
-          </div>
-          {status?.mcpConnected ? null : <p className="dsh-codex-hint">安装或更新 Codex 插件后，请新建一个 Codex 任务；已经打开的任务不会热加载插件或 MCP。</p>}
-          <p className="dsh-codex-hint">桥接仅监听 127.0.0.1，并使用随机令牌鉴权。工具调用仍经过 Harness 原有的权限与策略检查。</p>
-          {error === null ? null : <p className="dsh-codex-message" data-error>{error}</p>}
-          {snapshot.status === 'unavailable' ? <p className="dsh-codex-message" data-error>当前部署未开放此插件的设置命名空间。</p> : null}
-          <div className="dsh-codex-actions">
-            <button type="button" className="dsh-codex-button" disabled={saving} onClick={() => void refresh()}>刷新状态</button>
-          </div>
+    <div className="dsh-codex-settings">
+      {!writable ? <p className="dsh-codex-message" role="status">本部署的设置为只读。</p> : null}
+      <div className="dsh-codex-field">
+        <div className="dsh-codex-copy">
+          <div className="dsh-codex-label">启用 Codex 连接</div>
+          <p className="dsh-codex-hint">关闭后停止本机桥接；再次开启时会自动恢复监听。</p>
         </div>
-      ) : null}
-    </li>
+        <Switch label="启用 Codex 连接" checked={enabled} disabled={!writable || saving} onChange={toggle} />
+      </div>
+      <div className="dsh-codex-statuses" aria-live="polite">
+        <div className="dsh-codex-status"><span>本机桥接</span><strong><i className="dsh-codex-dot" data-state={status?.running ? 'ok' : 'warn'} />{status === null ? '正在检查…' : bridgeLabel}</strong></div>
+        <div className="dsh-codex-status"><span>活动会话</span><strong>{status === null ? '—' : String(status.sessions)}</strong></div>
+        <div className="dsh-codex-status"><span>MCP 状态</span><strong><i className="dsh-codex-dot" data-state={status?.mcpConnected ? 'ok' : undefined} />{status === null ? '正在检查…' : connectionLabel}</strong></div>
+      </div>
+      {status?.mcpConnected ? null : <p className="dsh-codex-hint">安装或更新 Codex 插件后，请新建一个 Codex 任务；已经打开的任务不会热加载插件或 MCP。</p>}
+      <p className="dsh-codex-hint">桥接仅监听 127.0.0.1，并使用随机令牌鉴权。工具调用仍经过 Harness 原有的权限与策略检查。</p>
+      {error === null ? null : <p className="dsh-codex-message" role="alert" data-error>{error}</p>}
+      {saveError === null ? null : <p className="dsh-codex-message" role="alert" data-error>{saveError}</p>}
+      <div className="dsh-codex-actions"><Button variant="outline" size="sm" disabled={saving} onClick={() => void refresh()}>刷新状态</Button></div>
+    </div>
   );
 }
 
 export function apply(ctx: ClientCtx): void {
   ctx.effect(installStyles, 'dsh-codex-bridge: client styles');
-  const scope = ctx.configForms.get<BridgeSettings>('dsh-codex-bridge' );
-  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-    name: 'settings.plugin.item',
-    key: 'dsh-codex-bridge',
-  }, () => <BridgeCard scope={scope} />));
+  const scope = ctx.configForms.get<BridgeSettings>('codex-bridge');
+  // Standalone installs configure on their package page; the combined bundle
+  // opens the same form from the component row. The manager owns navigation.
+  const SettingsView = ({ view }: PluginConfigViewProps): React.ReactNode => view === 'summary'
+    ? '让 Codex 使用当前 Harness 会话的工具和 Skills。'
+    : <BridgeSettingsPage scope={scope} />;
+  ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({
+    name: 'plugins.bundle.config',
+    key: '@dfy-plugins/dsh-codex-bridge',
+  }, SettingsView));
+  ctx.slots.inject('plugins.row.config', () => ctx.slots.register({
+    name: 'plugins.row.config',
+    key: '@dfy-plugins/dsh-bundle#codex-bridge',
+  }, SettingsView));
 }

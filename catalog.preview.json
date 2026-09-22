@@ -5,7 +5,7 @@
       "name": "@dfy-plugins/dsh-bundle",
       "title": "DFY 插件组合包",
       "category": "组合包",
-      "description": "一次安装 8 个 DFY 插件，统一更新；进入官方详情页可分别启停。",
+      "description": "集中安装 DFY 插件，统一更新；进入详情可分别启停各个插件。",
       "note": "包含以下单独插件，可选整包或按需安装。",
       "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/bundle",
       "includes": [
@@ -26,7 +26,7 @@
       "name": "@dfy-plugins/dsh-appearance",
       "title": "外观",
       "category": "界面",
-      "description": "调整对话字号、过程轨迹折叠和本地文件的打开方式。",
+      "description": "调整对话字号、行距和本地文件的打开方式。",
       "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/appearance"
     },
     {

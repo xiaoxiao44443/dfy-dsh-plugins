@@ -10,7 +10,7 @@ dsh plugin --profile web add @dfy-plugins/dsh-bundle@latest
 ```
 
 在官方“插件 → 已安装”中显示为“DFY 插件组合包”。总开关控制整包，详情页中可分别
-启停各个插件。更换包版本后重启 Harness。图片模型、Codex 伴生插件仍需各自配置。
+启停各个插件。点击“图像生成”或“Codex 连接”条目可进入原生设置页。更换包版本后重启 Harness。图片模型、Codex 伴生插件仍需各自配置。
 
 本仓库开发时先运行 `pnpm install && pnpm build`，再安装本地链接：
 
@@ -28,3 +28,5 @@ dsh plugin --profile web add link:/绝对路径/dfy-dsh-plugins/plugins/bundle
 
 桌面端从包内 `dfy.includes` 读取包含关系，仅用于展示及防重复安装；运行时的组合与启停
 仍完全由 DSH 的 `dsh.bundle.patch` 和官方管理器处理。
+
+组合包图标与桌面端左上角图标同源，使用 256×256 PNG。DSH 限制图标不超过 256 KiB；`release:prepare` 会检查图标是否随包发布、路径及文件体积。

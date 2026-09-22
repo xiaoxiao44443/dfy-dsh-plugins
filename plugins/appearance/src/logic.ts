@@ -9,14 +9,12 @@ export const MIN_PROCESS_LINE_HEIGHT_RATIO = 1;
 export const MAX_PROCESS_LINE_HEIGHT_RATIO = 1.9;
 
 export interface AppearanceSettings {
-  collapseCompletedProcess: boolean;
   chatFontSize: number;
   chatLineHeightRatio: number;
   processLineHeightRatio: number;
 }
 
 export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettings = {
-  collapseCompletedProcess: true,
   chatFontSize: DEFAULT_CHAT_FONT_SIZE,
   chatLineHeightRatio: DEFAULT_CHAT_LINE_HEIGHT_RATIO,
   processLineHeightRatio: DEFAULT_PROCESS_LINE_HEIGHT_RATIO,
@@ -42,79 +40,37 @@ export function normalizeAppearanceSettings(value: Partial<AppearanceSettings> |
     )
     : DEFAULT_PROCESS_LINE_HEIGHT_RATIO;
   return {
-    collapseCompletedProcess: value?.collapseCompletedProcess ?? true,
     chatFontSize,
     chatLineHeightRatio,
     processLineHeightRatio,
   };
 }
 
-export const PROCESS_NODE_KINDS = new Set([
-  'context',
-  'tool-call',
-  'command',
-  'manual-compaction',
-  'compaction',
-  'model-retry',
-]);
-
-export interface ProcessFlowNode {
+export interface ArtifactFlowNode {
   kind: string;
   hasOutput?: boolean;
   hasArtifact?: boolean;
 }
 
-export interface ProcessSegmentPlan {
+export interface ArtifactPlacementPlan {
   outputIndex: number;
-  collapseIndices: number[];
   artifactIndices: number[];
-  toolCount: number;
-  contextCount: number;
 }
 
-/** Group each process run with the next visible output and attach plugin artifacts to that output. */
-export function planCompletedProcessSegments(nodes: readonly ProcessFlowNode[]): ProcessSegmentPlan[] {
-  const segments: ProcessSegmentPlan[] = [];
-  let pending: number[] = [];
+/** Keep plugin artifacts beside visible output without controlling process disclosure. */
+export function planArtifactPlacements(nodes: readonly ArtifactFlowNode[]): ArtifactPlacementPlan[] {
+  const placements: ArtifactPlacementPlan[] = [];
   let artifacts: number[] = [];
   for (let index = 0; index < nodes.length; index += 1) {
     const node = nodes[index];
     if (node?.hasOutput === true) {
-      if (pending.length > 0) {
-        segments.push({
-          outputIndex: index,
-          collapseIndices: pending,
-          artifactIndices: artifacts,
-          toolCount: pending.filter((item) => nodes[item]?.kind === 'tool-call' || nodes[item]?.kind === 'command').length,
-          contextCount: pending.filter((item) => nodes[item]?.kind === 'context').length,
-        });
-      }
-      pending = [];
+      if (artifacts.length > 0) placements.push({ outputIndex: index, artifactIndices: artifacts });
       artifacts = [];
-      continue;
-    }
-    if (node?.hasArtifact === true) {
-      pending.push(index);
+    } else if (node?.hasArtifact === true) {
       artifacts.push(index);
-      continue;
-    }
-    if (PROCESS_NODE_KINDS.has(node?.kind ?? '') || node?.kind === 'assistant-step') {
-      pending.push(index);
     }
   }
   const lastArtifact = artifacts.at(-1);
-  if (lastArtifact !== undefined) {
-    const terminalPending = pending.filter((index) => index <= lastArtifact);
-    const terminalArtifacts = artifacts.filter((index) => index <= lastArtifact);
-    if (terminalPending.length > 0) {
-      segments.push({
-        outputIndex: lastArtifact,
-        collapseIndices: terminalPending,
-        artifactIndices: terminalArtifacts,
-        toolCount: terminalPending.filter((item) => nodes[item]?.kind === 'tool-call' || nodes[item]?.kind === 'command').length,
-        contextCount: terminalPending.filter((item) => nodes[item]?.kind === 'context').length,
-      });
-    }
-  }
-  return segments;
+  if (lastArtifact !== undefined) placements.push({ outputIndex: lastArtifact, artifactIndices: artifacts });
+  return placements;
 }

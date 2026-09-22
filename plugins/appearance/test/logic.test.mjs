@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   DEFAULT_APPEARANCE_SETTINGS,
   normalizeAppearanceSettings,
-  planCompletedProcessSegments,
+  planArtifactPlacements,
 } from '../lib/logic.js';
 
 test('appearance settings default and clamp the chat font size', () => {
@@ -18,11 +18,11 @@ test('appearance settings default and clamp the chat font size', () => {
   assert.equal(normalizeAppearanceSettings({ processLineHeightRatio: 9 }).processLineHeightRatio, 1.9);
   assert.equal(normalizeAppearanceSettings({ processLineHeightRatio: 0.5 }).processLineHeightRatio, 1);
   assert.equal(normalizeAppearanceSettings({ processLineHeightRatio: 1.234 }).processLineHeightRatio, 1.23);
-  assert.equal(normalizeAppearanceSettings({ collapseCompletedProcess: false }).collapseCompletedProcess, false);
+  assert.deepEqual(normalizeAppearanceSettings({ collapseCompletedProcess: true }), DEFAULT_APPEARANCE_SETTINGS);
 });
 
-test('completed turn plan folds each process run before its own visible text output', () => {
-  const plan = planCompletedProcessSegments([
+test('process-only rows do not create artifact placements', () => {
+  const plan = planArtifactPlacements([
     { kind: 'context' },
     { kind: 'assistant-step' },
     { kind: 'tool-call' },
@@ -30,14 +30,11 @@ test('completed turn plan folds each process run before its own visible text out
     { kind: 'tool-call' },
     { kind: 'assistant-step', hasOutput: true },
   ]);
-  assert.deepEqual(plan, [
-    { outputIndex: 3, collapseIndices: [0, 1, 2], artifactIndices: [], toolCount: 1, contextCount: 1 },
-    { outputIndex: 5, collapseIndices: [4], artifactIndices: [], toolCount: 1, contextCount: 0 },
-  ]);
+  assert.deepEqual(plan, []);
 });
 
-test('completed turn plan does not hide trailing process or terminal notices without later text', () => {
-  const plan = planCompletedProcessSegments([
+test('trailing process and terminal notices do not create artifact placements', () => {
+  const plan = planArtifactPlacements([
     { kind: 'assistant-step', hasOutput: true },
     { kind: 'context' },
     { kind: 'tool-call' },
@@ -47,36 +44,36 @@ test('completed turn plan does not hide trailing process or terminal notices wit
 });
 
 test('plugin-rendered artifacts are promoted after the following visible response', () => {
-  const plan = planCompletedProcessSegments([
+  const plan = planArtifactPlacements([
     { kind: 'context' },
     { kind: 'tool-call' },
     { kind: 'tool-call', hasArtifact: true },
     { kind: 'assistant-step', hasOutput: true },
   ]);
   assert.deepEqual(plan, [
-    { outputIndex: 3, collapseIndices: [0, 1, 2], artifactIndices: [2], toolCount: 2, contextCount: 1 },
+    { outputIndex: 3, artifactIndices: [2] },
   ]);
 });
 
 test('a trailing plugin artifact is promoted while later unfinished process remains visible', () => {
-  const plan = planCompletedProcessSegments([
+  const plan = planArtifactPlacements([
     { kind: 'context' },
     { kind: 'tool-call', hasArtifact: true },
     { kind: 'command' },
   ]);
   assert.deepEqual(plan, [
-    { outputIndex: 1, collapseIndices: [0, 1], artifactIndices: [1], toolCount: 1, contextCount: 1 },
+    { outputIndex: 1, artifactIndices: [1] },
   ]);
 });
 
 test('multiple artifacts stay ordered and attach to one visible response', () => {
-  const plan = planCompletedProcessSegments([
+  const plan = planArtifactPlacements([
     { kind: 'tool-call', hasArtifact: true },
     { kind: 'assistant-step' },
     { kind: 'tool-call', hasArtifact: true },
     { kind: 'assistant-step', hasOutput: true },
   ]);
   assert.deepEqual(plan, [
-    { outputIndex: 3, collapseIndices: [0, 1, 2], artifactIndices: [0, 2], toolCount: 2, contextCount: 0 },
+    { outputIndex: 3, artifactIndices: [0, 2] },
   ]);
 });

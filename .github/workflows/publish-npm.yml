@@ -44,6 +44,7 @@ jobs:
           node scripts/check-runtime-exports.mjs "$RUNNER_TEMP/dfy-release-runtime"
           node scripts/test-runtime-compat.mjs "$RUNNER_TEMP/dfy-release-runtime"
           pnpm release:test-install "$RUNNER_TEMP/dfy-release-runtime"
+          pnpm test:bundle-runtime "$RUNNER_TEMP/dfy-release-runtime"
       - uses: actions/upload-artifact@v7
         with:
           name: npm-packages

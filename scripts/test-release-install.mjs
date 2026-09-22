@@ -26,7 +26,7 @@ try {
   await writeFile(launcher, `process.argv[1] = ${JSON.stringify(entry)}; const cli = await import(${JSON.stringify(pathToFileURL(entry).href)}); if (typeof cli.runCli === 'function') await cli.runCli();\n`);
   const env = { ...process.env, DSH_HOME: home, npm_config_update_notifier: 'false' };
   const run = (args, stdio = 'pipe') => execFileSync(process.execPath, ['--expose-internals', launcher, ...args], {
-    cwd: home, env, stdio, encoding: 'utf8', timeout: 120_000,
+    cwd: home, env, windowsHide: true, stdio, encoding: 'utf8', timeout: 120_000,
   });
   run(['plugin', '--profile', 'web', 'list', '--depth', '0']);
   const profile = join(home, 'profiles/web');
@@ -46,9 +46,10 @@ try {
   const installed = JSON.parse(await readFile(join(profile, 'package.json'), 'utf8'));
   assert.deepEqual(installed.dsh.profile.bundles.filter(name => name.startsWith('@dfy-plugins/')).sort(), direct.map(pkg => pkg.name).sort());
   const dump = run(['--profile', 'web', '--dump-config']);
+  // Source-layer comments also contain package names; count only plugin rows.
+  const composedNames = [...dump.matchAll(/^\s*(?:-\s+)?name:\s+['"]?(@dfy-plugins\/[a-z0-9._-]+)['"]?\s*$/gm)].map(match => match[1]);
   for (const pkg of members) {
-    assert.ok(dump.includes(pkg.name), `Missing composed plugin: ${pkg.name}`);
-    assert.equal(dump.split(pkg.name).length - 1, 1, `Duplicate composed plugin: ${pkg.name}`);
+    assert.equal(composedNames.filter(name => name === pkg.name).length, 1, `Expected exactly one composed plugin: ${pkg.name}`);
   }
 
   // Import from the installed profile with DSH's current package resolution service.
@@ -77,7 +78,7 @@ try {
     }
     } finally { await ctx.fiber.dispose(); }
   `);
-  execFileSync(process.execPath, ['--expose-internals', smoke], { cwd: home, env, stdio: 'inherit', timeout: 60_000 });
+  execFileSync(process.execPath, ['--expose-internals', smoke], { cwd: home, env, windowsHide: true, stdio: 'inherit', timeout: 60_000 });
   run(['plugin', '--profile', 'web', 'remove', '--config.ignore-scripts=true', '--config.verify-deps-before-run=false', ...direct.map(pkg => pkg.name)]);
   const removed = JSON.parse(await readFile(join(profile, 'package.json'), 'utf8'));
   assert.ok(removed.dsh.profile.bundles.every(name => !name.startsWith('@dfy-plugins/')));

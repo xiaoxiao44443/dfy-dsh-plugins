@@ -506,9 +506,9 @@ export default class MediaBlocks extends Service {
           sendJson(res, 200, this.status());
         },
       };
-      webCtx.webServer.register(promptRoute);
-      webCtx.webServer.register(resourceRoute);
-      webCtx.webServer.register(statusRoute);
+      webCtx.effect(() => webCtx.webServer.register(promptRoute), 'media-blocks: promptRoute');
+      webCtx.effect(() => webCtx.webServer.register(resourceRoute), 'media-blocks: resourceRoute');
+      webCtx.effect(() => webCtx.webServer.register(statusRoute), 'media-blocks: statusRoute');
     });
   }
 

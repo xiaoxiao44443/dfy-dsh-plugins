@@ -528,7 +528,7 @@ export function apply(ctx: Context, entryConfig: Config): void {
     },
   };
 
-  ctx.webServer.register(statusRoute);
+  ctx.effect(() => ctx.webServer.register(statusRoute), 'codex-bridge: statusRoute');
   ctx.effect(() => () => {
     toolTurns.dispose();
     runs.dispose();

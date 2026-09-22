@@ -5,7 +5,7 @@
 ## 组成
 
 - DSH Host 插件：启动仅监听 `127.0.0.1` 的随机端口，生成随机鉴权令牌，并保留 Harness 原有的工具权限与策略检查。
-- DSH Client 插件：在“设置 → 插件”显示连接状态和开关。
+- DSH Client 插件：在“插件 → DFY 插件组合包 → Codex 连接”显示连接状态和开关；独立安装时直接打开该插件的详情页。
 - Codex 伴生插件：从 DSH 数据目录读取发现文件，通过 MCP 将 Harness 会话、工具与 Skills 暴露给 Codex。
 
 桥接协议不依赖 Electron。网页、CLI 或桌面壳只要运行同一套 DSH Host 插件即可使用。

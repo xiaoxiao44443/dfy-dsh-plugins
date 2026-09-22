@@ -789,8 +789,8 @@ export function apply(ctx: Context, entryConfig: Config): void {
         }
       },
     };
-    webCtx.webServer.register(statusRoute);
-    webCtx.webServer.register(resourceRoute);
+    webCtx.effect(() => webCtx.webServer.register(statusRoute), 'image-generation: statusRoute');
+    webCtx.effect(() => webCtx.webServer.register(resourceRoute), 'image-generation: resourceRoute');
   });
 
   ctx.effect(() => () => {

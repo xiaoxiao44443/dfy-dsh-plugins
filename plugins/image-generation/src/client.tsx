@@ -1,5 +1,7 @@
 /** Client settings and Tool presentation for dedicated image generation. */
 import React from 'react';
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client';
+import type { PluginConfigViewProps } from '@deepseek-ai/dsh-client-ui-plugin-manager/client';
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment';
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client';
 import {
@@ -8,6 +10,11 @@ import {
   IconSparkleRegular,
   Menu,
   StateDot,
+  Switch,
+  Button,
+  SettingsForm,
+  SettingsValueField,
+  SettingsSecretField,
   type MenuItem,
 } from '@deepseek-ai/dsh-client-ui-primitives';
 
@@ -17,19 +24,6 @@ interface ImageSettings {
   model?: string;
   quality?: string;
   size?: string;
-}
-
-interface SettingsSnapshot<T> {
-  status: 'loading' | 'ready' | 'unavailable';
-  value: T | undefined;
-  revision: number | undefined;
-  writable: boolean;
-}
-
-interface SettingsScope<T> {
-  getSnapshot(): SettingsSnapshot<T>;
-  subscribe(listener: () => void): () => void;
-  set(field: string, value: unknown): Promise<boolean>;
 }
 
 interface SlotEntryOptions {
@@ -45,7 +39,7 @@ interface ClientCtx {
     register(options: SlotEntryOptions, component: unknown): unknown;
   };
   configForms: {
-    get<T>(entryId: string): SettingsScope<T>;
+    get<T>(entryId: string): ConfigForm<T>;
   };
 }
 
@@ -140,49 +134,20 @@ const SIZE_OPTIONS: readonly SelectOption[] = [
 ];
 
 const STYLES = `
-.dsh-imagegen-card { overflow:hidden; list-style:none; border:1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.22)); border-radius:12px; background:var(--dsw-alias-bg-layer-3, rgba(255,255,255,.92)); color:var(--dsw-alias-label-primary, inherit); transition:border-color .16s,background .16s; }
-.dsh-imagegen-card:hover,.dsh-imagegen-card[data-open] { border-color:var(--dsw-alias-label-dimmed, rgba(127,127,127,.42)); }
-.dsh-imagegen-card[data-open] { background:var(--dsw-alias-bg-layer-2, rgba(255,255,255,.82)); }
-.dsh-imagegen-head { display:flex; width:100%; appearance:none; align-items:center; gap:12px; padding:14px 16px; border:0; border-radius:12px; background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; }
-.dsh-imagegen-head:focus-visible { outline:2px solid var(--dsw-alias-brand-primary,#298df8); outline-offset:-2px; }
-.dsh-imagegen-head-copy { display:flex; min-width:0; flex:1; flex-direction:column; gap:4px; }
-.dsh-imagegen-title { color:var(--dsw-alias-label-primary,inherit); font-size:15px; font-weight:600; line-height:1.4; }
-.dsh-imagegen-description { color:var(--dsw-alias-label-tertiary,rgba(127,127,127,.86)); font-size:13px; line-height:1.5; }
-.dsh-imagegen-badge { max-width:220px; overflow:hidden; padding:3px 9px; border-radius:999px; background:var(--dsw-alias-bg-module-platform,rgba(127,127,127,.1)); color:var(--dsw-alias-label-secondary,inherit); font-size:12px; line-height:1.5; text-overflow:ellipsis; white-space:nowrap; }
-.dsh-imagegen-chevron { flex:none; color:var(--dsw-alias-label-tertiary); transition:transform .16s; }
-.dsh-imagegen-chevron[data-open] { transform:rotate(180deg); }
-.dsh-imagegen-body { margin:0 16px; padding-bottom:8px; border-top:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,.22)); }
 .dsh-imagegen-note { margin:12px 0; color:var(--dsw-alias-label-tertiary,rgba(127,127,127,.9)); font-size:12px; line-height:1.5; }
 .dsh-imagegen-note[data-error] { color:var(--dsw-alias-state-error-primary,#e5484d); }
 .dsh-imagegen-field { display:flex; flex-direction:column; gap:6px; padding:12px 0; }
-.dsh-imagegen-field + .dsh-imagegen-field { border-top:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,.22)); }
+.dsh-imagegen-field + .dsh-imagegen-field { border-top:.5px solid var(--dsw-alias-border-l2,rgba(127,127,127,.22)); }
 .dsh-imagegen-field-head { display:flex; align-items:center; gap:8px; }
 .dsh-imagegen-label { min-width:0; flex:1; color:var(--dsw-alias-label-primary,inherit); font-size:13px; font-weight:500; line-height:1.5; }
 .dsh-imagegen-hint { margin:0; color:var(--dsw-alias-label-tertiary,rgba(127,127,127,.9)); font-size:12px; line-height:1.5; }
-.dsh-imagegen-control,.dsh-imagegen-select-trigger { box-sizing:border-box; width:100%; height:34px; padding:0 12px; border:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,.22)); border-radius:8px; background:var(--dsw-alias-bg-layer-3,rgba(255,255,255,.92)); color:var(--dsw-alias-label-primary,inherit); font:inherit; font-size:13px; line-height:1.5; }
-.dsh-imagegen-control:focus-visible { outline:none; border-color:var(--dsw-alias-brand-primary,#298df8); }
-.dsh-imagegen-control:disabled,.dsh-imagegen-select-trigger:disabled { color:var(--dsw-alias-label-tertiary,rgba(127,127,127,.86)); cursor:default; }
 .dsh-imagegen-select-menu { display:flex; width:100%; }
-.dsh-imagegen-select-trigger { display:flex; height:36px; appearance:none; align-items:center; justify-content:space-between; gap:12px; padding:0 14px; border:0; border-radius:18px; outline:none; background:var(--dsw-alias-bg-module-platform,rgba(127,127,127,.08)); text-align:left; cursor:pointer; font-size:14px; line-height:22px; }
+.dsh-imagegen-select-trigger { box-sizing:border-box; width:100%; color:var(--dsw-alias-label-primary); font:inherit; display:flex; height:36px; appearance:none; align-items:center; justify-content:space-between; gap:12px; padding:0 14px; border:0; border-radius:18px; outline:none; background:var(--dsw-alias-bg-module-platform,rgba(127,127,127,.08)); text-align:left; cursor:pointer; font-size:14px; line-height:22px; }
 .dsh-imagegen-select-trigger:hover:not(:disabled),.dsh-imagegen-select-trigger[aria-expanded='true'] { background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.1)); }
 .dsh-imagegen-select-trigger:focus-visible { box-shadow:0 0 0 2px var(--dsw-alias-state-business-primary,var(--dsw-alias-brand-primary,#298df8)); }
+.dsh-imagegen-select-trigger:disabled { color:var(--dsw-alias-label-tertiary); cursor:default; }
 .dsh-imagegen-select-trigger span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .dsh-imagegen-select-trigger svg { flex:none; }
-.dsh-imagegen-switch { position:relative; width:32px; height:20px; flex:none; }
-.dsh-imagegen-switch input { position:absolute; opacity:0; }
-.dsh-imagegen-switch span { position:absolute; inset:0; border-radius:999px; background:var(--dsw-alias-bg-module-platform,rgba(127,127,127,.18)); cursor:pointer; transition:background 120ms ease; }
-.dsh-imagegen-switch span::after { position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:white; box-shadow:0 1px 2px rgba(0,0,0,.3); content:''; transition:transform 120ms ease; }
-.dsh-imagegen-switch input:checked + span { background:var(--dsw-alias-state-business-primary,var(--dsw-alias-brand-primary,#298df8)); }
-.dsh-imagegen-switch input:checked + span::after { transform:translateX(12px); }
-.dsh-imagegen-switch input:focus-visible + span { outline:2px solid var(--dsw-alias-state-business-primary,var(--dsw-alias-brand-primary,#298df8)); outline-offset:2px; }
-.dsh-imagegen-switch input:disabled + span { cursor:default; opacity:.6; }
-.dsh-imagegen-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:12px 0 4px; border-top:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,.22)); }
-.dsh-imagegen-button { appearance:none; padding:5px 14px; border:1px solid var(--dsw-alias-border-l2,rgba(127,127,127,.22)); border-radius:8px; background:none; color:var(--dsw-alias-label-secondary,inherit); font:inherit; font-size:13px; line-height:1.5; cursor:pointer; }
-.dsh-imagegen-button:hover:not(:disabled) { border-color:var(--dsw-alias-label-dimmed,rgba(127,127,127,.42)); color:var(--dsw-alias-label-primary,inherit); }
-.dsh-imagegen-button[data-primary] { border-color:transparent; background:var(--dsw-alias-label-primary,#111); color:var(--dsw-alias-bg-layer-3,#fff); }
-.dsh-imagegen-button[data-primary]:hover:not(:disabled) { color:var(--dsw-alias-bg-layer-3,#fff); }
-.dsh-imagegen-button:focus-visible { outline:2px solid var(--dsw-alias-brand-primary,#298df8); outline-offset:2px; }
-.dsh-imagegen-button:disabled { cursor:default; opacity:.4; }
 .dsh-imagegen-tool { display:flex; min-width:0; flex-direction:column; }
 .dsh-imagegen-tool-row { position:relative; display:flex; min-width:0; height:24px; align-items:center; overflow:hidden; }
 .dsh-imagegen-tool-row[data-expandable] { cursor:pointer; }
@@ -207,7 +172,6 @@ const STYLES = `
 .dsh-imagegen-tool-inspect { display:inline-flex; align-self:flex-start; align-items:center; gap:4px; margin:4px 0 2px 22px; padding:2px 8px; border:1px solid var(--dsw-alias-border-l2); border-radius:999px; background:var(--dsw-alias-bg-base); color:var(--dsw-alias-label-secondary); cursor:pointer; font-size:11px; line-height:16px; }
 .dsh-imagegen-tool-inspect:hover { background:var(--dsw-alias-interactive-bg-hover-solid); color:var(--dsw-alias-label-primary); }
 @keyframes dsh-imagegen-sweep { 0% { left:-300px; } 90%,100% { left:100%; } }
-@media (max-width:680px) { .dsh-imagegen-badge { display:none; } }
 @media (prefers-reduced-motion:reduce) { .dsh-imagegen-tool[data-state='running'] .dsh-imagegen-tool-row::after { display:none; animation:none; } }
 `;
 
@@ -531,6 +495,7 @@ function ImageSelect({
   React.useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
   return (
     <Menu
+      align="end"
       className="dsh-imagegen-select-menu"
       open={open && !disabled}
       portal
@@ -565,13 +530,12 @@ function validBaseUrl(value: string): boolean {
   }
 }
 
-function ImageSettingsCard({ scope }: { scope: SettingsScope<ImageSettings> }): React.ReactElement {
+function ImageSettingsPage({ scope }: { scope: ConfigForm<ImageSettings> }): React.ReactElement {
   const snapshot = React.useSyncExternalStore(
     (listener) => scope.subscribe(listener),
     () => scope.getSnapshot(),
     () => scope.getSnapshot(),
   );
-  const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<Draft>(() => draftOf(snapshot.value));
   const [dirty, setDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -603,14 +567,14 @@ function ImageSettingsCard({ scope }: { scope: SettingsScope<ImageSettings> }): 
   };
 
   const credentialConfigured = status?.credential.configured === true;
-  const credentialWritable = status?.credential.writable !== false;
+  const credentialWritable = status?.credential.writable === true;
   const complete = draft.baseUrl.trim().length > 0
     && draft.model.trim().length > 0
     && (credentialConfigured || draft.apiKey.trim().length > 0);
   const baseUrlPresent = draft.baseUrl.trim().length > 0;
   const baseUrlValid = !baseUrlPresent || validBaseUrl(draft.baseUrl);
   const writable = snapshot.status === 'ready' && snapshot.writable;
-  const canSave = writable && dirty && !saving && complete && baseUrlValid
+  const canSave = writable && dirty && !saving && (!draft.enabled || complete) && baseUrlValid
     && (draft.apiKey.trim().length === 0 || credentialWritable);
 
   const save = (): void => {
@@ -629,11 +593,14 @@ function ImageSettingsCard({ scope }: { scope: SettingsScope<ImageSettings> }): 
           if (!response.ok) throw new Error(body.error ?? `HTTP ${String(response.status)}`);
           setStatus(body);
         }
-        await scope.set('enabled', draft.enabled);
-        await scope.set('baseUrl', draft.baseUrl.trim());
-        await scope.set('model', draft.model.trim());
-        await scope.set('quality', draft.quality);
-        await scope.set('size', draft.size);
+        const accepted = await scope.mutate([
+          { op: 'set', path: ['enabled'], value: draft.enabled },
+          { op: 'set', path: ['baseUrl'], value: draft.baseUrl.trim() },
+          { op: 'set', path: ['model'], value: draft.model.trim() },
+          { op: 'set', path: ['quality'], value: draft.quality },
+          { op: 'set', path: ['size'], value: draft.size },
+        ], snapshot.revision);
+        if (!accepted) throw new Error('设置未保存，请刷新后重试。');
         setDraft((current) => ({ ...current, apiKey: '' }));
         setDirty(false);
         await loadStatus();
@@ -646,90 +613,64 @@ function ImageSettingsCard({ scope }: { scope: SettingsScope<ImageSettings> }): 
   };
 
   return (
-    <li className="dsh-imagegen-card" data-open={open || undefined}>
-      <button type="button" className="dsh-imagegen-head" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="dsh-imagegen-head-copy">
-          <span className="dsh-imagegen-title">图像生成</span>
-          <span className="dsh-imagegen-description">通过独立生图路由生成或编辑图片，不进入主对话模型列表。</span>
-        </span>
-        <span className="dsh-imagegen-badge" title={status?.activation.status === 'error' ? status.activation.message : undefined}>
-          {activationLabel(status?.activation ?? null)}
-        </span>
-        <IconChevronDownOutlineRegular className="dsh-imagegen-chevron" data-open={open || undefined} size={16} />
-      </button>
-      {open ? (
-        <div className="dsh-imagegen-body">
-          <p className="dsh-imagegen-note">默认兼容 OpenAI Images API。API Key 独立保存在 Harness 凭据层，不会写入普通插件设置。</p>
-          {loadError === null ? null : <p className="dsh-imagegen-note" data-error>{loadError}</p>}
-          {status?.activation.status === 'error' ? <p className="dsh-imagegen-note" data-error>{status.activation.message}</p> : null}
+    <SettingsForm
+      labels={{
+        unavailable: snapshot.status === 'loading' ? '正在加载设置…' : '该插件当前未加载，暂时无法配置。',
+        readOnly: '本部署的设置为只读。', saveFailed: saveError ?? '设置未保存，请重试。',
+        save: '保存', saving: '保存中…',
+      }}
+      state={{ available: snapshot.status === 'ready', writable, dirty, invalid: !canSave, saving, failed: saveError !== null }}
+      onSave={save}
+      onDiscard={() => { setDraft(draftOf(scope.getSnapshot().value)); setDirty(false); setSaveError(null); }}
+    >
+      <p className="dsh-imagegen-note" role="status">当前状态：{activationLabel(status?.activation ?? null)}</p>
+      <p className="dsh-imagegen-note">默认兼容 OpenAI Images API。API Key 独立保存在 Harness 凭据层，不会写入普通插件设置。</p>
+      {loadError === null ? null : <p className="dsh-imagegen-note" role="alert" data-error>{loadError}</p>}
+      {status?.activation.status === 'error' ? <p className="dsh-imagegen-note" data-error>{status.activation.message}</p> : null}
+      <SettingsValueField
+        id="dsh-imagegen-base-url" label="API Base URL" text={draft.baseUrl}
+        hint="例如 https://api.teamorouter.com/v1；插件会调用 images/generations 或 images/edits。"
+        disabled={!writable || saving} invalid={!baseUrlValid} invalidLabel="Base URL 必须是有效的 HTTP 或 HTTPS 地址。"
+        overridden={false} overriddenLabel="已覆盖" resetLabel="恢复默认"
+        onEdit={(value) => edit('baseUrl', value)} onReset={() => edit('baseUrl', '')}
+      />
+      <SettingsSecretField
+        id="dsh-imagegen-credential" label="API 密钥" text={draft.apiKey}
+        hint="已保存的密钥不会回显；留空会保留现有值。"
+        configured={credentialConfigured} stateLabel={credentialConfigured ? '已配置' : '未配置'}
+        disabled={!writable || !credentialWritable || saving} onEdit={(value) => edit('apiKey', value)}
+      />
+      <SettingsValueField
+        id="dsh-imagegen-model" label="图像模型" text={draft.model}
+        hint="例如 gpt-image-2；它只属于此工具，不会出现在会话模型选择器。"
+        disabled={!writable || saving} invalid={false} invalidLabel="请填写模型名称。"
+        overridden={false} overriddenLabel="已覆盖" resetLabel="恢复默认"
+        onEdit={(value) => edit('model', value)} onReset={() => edit('model', '')}
+      />
+      <div className="dsh-imagegen-field">
+        <div className="dsh-imagegen-field-head"><div className="dsh-imagegen-label">默认质量</div></div>
+        <ImageSelect ariaLabel="默认质量" value={draft.quality} options={QUALITY_OPTIONS} disabled={!writable || saving} onChange={(value) => edit('quality', value)} />
+      </div>
 
-          <div className="dsh-imagegen-field">
-            <div className="dsh-imagegen-field-head"><label className="dsh-imagegen-label" htmlFor="dsh-imagegen-base-url">API Base URL</label></div>
-            <input id="dsh-imagegen-base-url" className="dsh-imagegen-control" value={draft.baseUrl} disabled={!writable} spellCheck={false} onChange={(event) => edit('baseUrl', event.target.value)} />
-            <p className="dsh-imagegen-hint">例如 https://api.teamorouter.com/v1；插件会调用 images/generations 或 images/edits。</p>
-          </div>
+      <div className="dsh-imagegen-field">
+        <div className="dsh-imagegen-field-head"><div className="dsh-imagegen-label">默认尺寸</div></div>
+        <ImageSelect ariaLabel="默认尺寸" value={draft.size} options={SIZE_OPTIONS} disabled={!writable || saving} onChange={(value) => edit('size', value)} />
+        <p className="dsh-imagegen-hint">模型仍可在单次工具调用中覆盖质量和尺寸。</p>
+      </div>
 
-          <div className="dsh-imagegen-field">
-            <div className="dsh-imagegen-field-head">
-              <label className="dsh-imagegen-label" htmlFor="dsh-imagegen-credential">API 密钥</label>
-              <span className="dsh-imagegen-hint">{credentialConfigured ? '已配置' : '未配置'}</span>
-            </div>
-            <input
-              id="dsh-imagegen-credential"
-              className="dsh-imagegen-control"
-              type="password"
-              autoComplete="new-password"
-              value={draft.apiKey}
-              placeholder={credentialConfigured ? '已配置 —— 输入新值可替换' : '输入 API Key'}
-              disabled={!writable || !credentialWritable}
-              spellCheck={false}
-              onChange={(event) => edit('apiKey', event.target.value)}
-            />
-            <p className="dsh-imagegen-hint">已保存的密钥不会回显；留空会保留现有值。</p>
-          </div>
-
-          <div className="dsh-imagegen-field">
-            <div className="dsh-imagegen-field-head"><label className="dsh-imagegen-label" htmlFor="dsh-imagegen-model">图像模型</label></div>
-            <input id="dsh-imagegen-model" className="dsh-imagegen-control" value={draft.model} disabled={!writable} spellCheck={false} onChange={(event) => edit('model', event.target.value)} />
-            <p className="dsh-imagegen-hint">例如 gpt-image-2；它只属于此工具，不会出现在会话模型选择器。</p>
-          </div>
-
-          <div className="dsh-imagegen-field">
-            <div className="dsh-imagegen-field-head"><div className="dsh-imagegen-label">默认质量</div></div>
-            <ImageSelect ariaLabel="默认质量" value={draft.quality} options={QUALITY_OPTIONS} disabled={!writable} onChange={(value) => edit('quality', value)} />
-          </div>
-
-          <div className="dsh-imagegen-field">
-            <div className="dsh-imagegen-field-head"><div className="dsh-imagegen-label">默认尺寸</div></div>
-            <ImageSelect ariaLabel="默认尺寸" value={draft.size} options={SIZE_OPTIONS} disabled={!writable} onChange={(value) => edit('size', value)} />
-            <p className="dsh-imagegen-hint">模型仍可在单次工具调用中覆盖质量和尺寸。</p>
-          </div>
-
-          <div className="dsh-imagegen-field">
-            <div className="dsh-imagegen-field-head">
-              <div className="dsh-imagegen-label">启用图像生成工具</div>
-              <label className="dsh-imagegen-switch">
-                <input type="checkbox" checked={draft.enabled && complete} disabled={!writable || !complete} onChange={(event) => edit('enabled', event.target.checked)} />
-                <span />
-              </label>
-            </div>
-            <p className="dsh-imagegen-hint">启用后注册固定的 dfy_image_generate 工具和 dfy-image-generation Skill。</p>
-          </div>
-
-          {!complete ? <p className="dsh-imagegen-note" data-error>启用前请补全 Base URL、API 密钥和模型。</p> : null}
-          {baseUrlPresent && !baseUrlValid ? <p className="dsh-imagegen-note" data-error>Base URL 必须是有效的 HTTP 或 HTTPS 地址。</p> : null}
-          {!credentialWritable ? <p className="dsh-imagegen-note" data-error>当前凭据来源不可由设置页替换。</p> : null}
-          {saveError === null ? null : <p className="dsh-imagegen-note" data-error>保存失败：{saveError}</p>}
-          {snapshot.status === 'unavailable' ? <p className="dsh-imagegen-note" data-error>当前部署未开放此插件的设置命名空间。</p> : null}
-
-          <div className="dsh-imagegen-actions">
-            <button type="button" className="dsh-imagegen-button" onClick={() => void loadStatus()}>刷新状态</button>
-            <button type="button" className="dsh-imagegen-button" disabled={!dirty || saving} onClick={() => { setDraft(draftOf(snapshot.value)); setDirty(false); setSaveError(null); }}>放弃更改</button>
-            <button type="button" className="dsh-imagegen-button" data-primary disabled={!canSave} onClick={save}>{saving ? '保存中…' : '保存'}</button>
-          </div>
+      <div className="dsh-imagegen-field">
+        <div className="dsh-imagegen-field-head">
+          <div className="dsh-imagegen-label">启用图像生成工具</div>
+          <Switch label="启用图像生成工具" checked={draft.enabled} disabled={!writable || saving || (!draft.enabled && !complete)} onChange={(checked) => edit('enabled', checked)} />
         </div>
-      ) : null}
-    </li>
+        <p className="dsh-imagegen-hint">启用后注册固定的 dfy_image_generate 工具和 dfy-image-generation Skill。</p>
+      </div>
+
+      {!complete ? <p className="dsh-imagegen-note" data-error>启用前请补全 Base URL、API 密钥和模型。</p> : null}
+      {baseUrlPresent && !baseUrlValid ? <p className="dsh-imagegen-note" data-error>Base URL 必须是有效的 HTTP 或 HTTPS 地址。</p> : null}
+      {!credentialWritable ? <p className="dsh-imagegen-note" data-error>当前凭据来源不可由设置页替换。</p> : null}
+      <div><Button variant="outline" size="sm" disabled={saving} onClick={() => void loadStatus()}>刷新状态</Button></div>
+    </SettingsForm>
   );
 }
 
@@ -739,13 +680,22 @@ export function apply(ctx: ClientCtx): void {
     for (const pending of resourceUrls.values()) void pending.then((url) => URL.revokeObjectURL(url));
     resourceUrls.clear();
   }, 'dsh-image-generation: release object URLs');
-  const scope = ctx.configForms.get<ImageSettings>('dsh-image-generation' );
+  const scope = ctx.configForms.get<ImageSettings>('image-generation');
   ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
     name: 'tool.call.toolview',
     key: 'dfy_image_generate',
   }, ImageToolRow));
-  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-    name: 'settings.plugin.item',
-    key: 'dsh-image-generation',
-  }, () => <ImageSettingsCard scope={scope} />));
+  // Standalone installs configure on their package page; the combined bundle
+  // opens the same form from the component row. The manager owns navigation.
+  const SettingsView = ({ view }: PluginConfigViewProps): React.ReactNode => view === 'summary'
+    ? '通过独立生图路由生成或编辑图片，不进入主对话模型列表。'
+    : <ImageSettingsPage scope={scope} />;
+  ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({
+    name: 'plugins.bundle.config',
+    key: '@dfy-plugins/dsh-image-generation',
+  }, SettingsView));
+  ctx.slots.inject('plugins.row.config', () => ctx.slots.register({
+    name: 'plugins.row.config',
+    key: '@dfy-plugins/dsh-bundle#image-generation',
+  }, SettingsView));
 }

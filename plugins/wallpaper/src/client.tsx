@@ -5,6 +5,7 @@ import {
   IconChevronDownOutlineRegular,
   IconCloseOutlineRegular,
   Menu,
+  Switch,
   type MenuItem,
 } from '@deepseek-ai/dsh-client-ui-primitives';
 
@@ -90,7 +91,10 @@ const POSITION_OPTIONS: ReadonlyArray<{ value: WallpaperPosition; label: string 
 
 const STYLES = `
 ${REGION_STYLES}
-body[${ACTIVE_ATTRIBUTE}] {
+/* DSH dark tokens are installed after this plugin; keep wallpaper overrides
+   more specific than body[data-ds-dark-theme] regardless of load order. */
+body[${ACTIVE_ATTRIBUTE}],
+body[${ACTIVE_ATTRIBUTE}][data-ds-dark-theme] {
   isolation: isolate;
   --dsh-wallpaper-surface-rgb: 255 255 255;
   --dsh-wallpaper-surface-1: rgb(var(--dsh-wallpaper-surface-rgb) / var(--dsh-wallpaper-surface-alpha-1));
@@ -225,13 +229,6 @@ body[data-ds-dark-theme] .dsh-wallpaper-floating {
 .dsh-wallpaper-enable-copy { min-width: 0; }
 .dsh-wallpaper-enable-title { font-size: 13px; font-weight: 600; line-height: 20px; }
 .dsh-wallpaper-enable-hint { color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 18px; }
-.dsh-wallpaper-switch { position: relative; flex: none; width: 40px; height: 22px; }
-.dsh-wallpaper-switch input { position: absolute; opacity: 0; }
-.dsh-wallpaper-switch span { position: absolute; inset: 0; border-radius: 999px; background: rgba(127,127,127,.32); cursor: pointer; transition: background .15s ease; }
-.dsh-wallpaper-switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: white; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .15s ease; }
-.dsh-wallpaper-switch input:checked + span { background: var(--dsw-alias-state-business-primary); }
-.dsh-wallpaper-switch input:checked + span::after { transform: translateX(18px); }
-.dsh-wallpaper-switch input:disabled + span { cursor: not-allowed; opacity: .45; }
 .dsh-wallpaper-section { margin-top: 20px; }
 .dsh-wallpaper-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 2px 9px; }
 .dsh-wallpaper-section-title { margin: 0; font-size: 13px; font-weight: 650; }
@@ -246,7 +243,7 @@ body[data-ds-dark-theme] .dsh-wallpaper-floating {
 .dsh-wallpaper-select-trigger:focus-visible { box-shadow: 0 0 0 2px var(--dsw-alias-state-business-primary); }
 .dsh-wallpaper-select-trigger svg { flex: none; }
 .dsh-wallpaper-range-row { display: grid; grid-template-columns: minmax(0,1fr) 42px; gap: 10px; align-items: center; }
-.dsh-wallpaper-field input[type='range'] { width: 100%; accent-color: var(--dsw-alias-state-business-primary); }
+.dsh-wallpaper-field input[type='range'] { width: 100%; accent-color: var(--dsw-alias-brand-primary); }
 .dsh-wallpaper-number { text-align: right; color: var(--dsw-alias-label-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
 .dsh-wallpaper-number-input { box-sizing: border-box; width: 64px; height: 30px; padding: 0 6px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; outline: none; background: var(--dsw-alias-bg-layer-1); color: inherit; text-align: right; font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; }
 .dsh-wallpaper-number-input:focus-visible { border-color: var(--dsw-alias-state-business-primary); }
@@ -264,9 +261,6 @@ body[data-ds-dark-theme] .dsh-wallpaper-floating {
   .dsh-wallpaper-grid { grid-template-columns: 1fr; }
   .dsh-wallpaper-footer { align-items: stretch; flex-direction: column; }
   .dsh-wallpaper-footer .dsh-wallpaper-storage-note { flex-basis: auto; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .dsh-wallpaper-switch span, .dsh-wallpaper-switch span::after { transition: none; }
 }
 `;
 
@@ -701,6 +695,7 @@ function WallpaperSelect<T extends string>({
 
   return (
     <Menu
+      align="end"
       className="dsh-wallpaper-select-menu"
       open={open}
       portal
@@ -891,16 +886,12 @@ function WallpaperSettingsSection({ controller }: { controller: WallpaperControl
               <div className="dsh-wallpaper-enable-title">启用主界面壁纸</div>
               <div className="dsh-wallpaper-enable-hint">关闭后保留图片和所有设置。</div>
             </div>
-            <label className="dsh-wallpaper-switch">
-              <input
-                type="checkbox"
-                checked={snapshot.settings.enabled && hasImage}
-                disabled={!hasImage || snapshot.loading}
-                onChange={(event) => update({ enabled: event.currentTarget.checked })}
-                aria-label="启用主界面壁纸"
-              />
-              <span />
-            </label>
+            <Switch
+              checked={snapshot.settings.enabled && hasImage}
+              disabled={!hasImage || snapshot.loading}
+              onChange={(checked) => update({ enabled: checked })}
+              label="启用主界面壁纸"
+            />
           </div> : null}
         </section>
 

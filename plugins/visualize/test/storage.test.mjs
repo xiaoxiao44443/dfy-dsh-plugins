@@ -33,7 +33,7 @@ test('tool publishes HTML and assets beneath the current session directory', asy
     },
     emit() {},
     inject(_dependencies, callback) {
-      callback({ webServer: { register(value) { route = value; return () => {}; } } });
+      callback({ effect: setup => setup(), webServer: { register(value) { route = value; return () => {}; } } });
     },
     effect(setup) { setup(); },
   };

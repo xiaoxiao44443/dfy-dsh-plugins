@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Codex 连接",
+    "description": "让 Codex 使用当前 Harness 会话的工具和 Skills。"
+  }
+}

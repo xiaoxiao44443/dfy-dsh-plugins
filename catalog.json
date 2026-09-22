@@ -12,7 +12,7 @@
       "name": "@dfy-plugins/dsh-appearance",
       "title": "外观",
       "category": "界面",
-      "description": "调整对话字号、过程轨迹折叠和本地文件的打开方式。",
+      "description": "调整对话字号、行距和本地文件的打开方式。",
       "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/appearance"
     },
     {

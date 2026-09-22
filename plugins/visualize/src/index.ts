@@ -433,7 +433,7 @@ export function apply(ctx: Context): void {
         }
       },
     };
-    webCtx.webServer.register(route);
+    webCtx.effect(() => webCtx.webServer.register(route), 'visualize: route');
   });
 
   ctx.effect(() => () => {

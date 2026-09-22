@@ -15,7 +15,7 @@ test('bundle composes every maintained plugin with its original ID exactly once'
   assert.deepEqual(rows.map(row => row[2]), members);
   for (const [, id, name] of rows) {
     const slug = name.replace('@dfy-plugins/dsh-', '');
-    const standalone = await readFile(new URL(`../${slug}/cordis.patch.yml`, root), 'utf8');
+    const standalone = (await readFile(new URL(`../${slug}/cordis.patch.yml`, root), 'utf8')).replaceAll('\r\n', '\n');
     assert.ok(standalone.includes(`id: ${id}\n`));
     assert.ok(standalone.includes(`name: '${name}'`));
     assert.equal(manifest.dependencies[name], 'workspace:*');

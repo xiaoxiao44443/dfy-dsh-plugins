@@ -21,6 +21,7 @@ pnpm check
 pnpm build
 pnpm release:prepare
 pnpm release:test-install ../dfy-dsh-desktop/build/harness-runtime
+pnpm test:bundle-runtime ../dfy-dsh-desktop/build/harness-runtime
 pnpm release:dry-run
 ```
 
@@ -114,3 +115,5 @@ Codex Bridge 的 Codex 伴生插件仍需通过 Codex Plugin Marketplace 单独�
 参考：[npm 公开 scope 包](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/)、
 [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/)、
 [pnpm workspace 发布](https://pnpm.io/workspaces#publishing-workspace-packages)。
+
+`test:bundle-runtime` 会实际启动临时 Web Profile，验证独立安装迁移、配置与停用状态保留、逐项及整包热启停；需要允许本机回环端口，不调用模型、不访问日常 Profile。它也覆盖卸载后路由是否释放。

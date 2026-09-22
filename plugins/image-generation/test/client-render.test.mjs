@@ -25,8 +25,9 @@ runInNewContext(built.outputFiles[0].text, {
   },
 });
 const entries = [];
+const settingsScope = {};
 module.exports.apply({
-  effect() {}, configForms: { get() { return {}; } },
+  effect() {}, configForms: { get(entryId) { assert.equal(entryId, 'image-generation'); return settingsScope; } },
   slots: { inject(_name, callback) { callback(); }, register(options, component) { entries.push({ options, component }); } },
 });
 const entry = entries.find(item => item.options.key === 'dfy_image_generate');
@@ -98,4 +99,14 @@ test('running, failed and malformed results cannot display stale or invalid imag
     { ...settled, content: [], meta: { images: 'invalid' }, resultView: { card: 'generic', content: [{ type: 'image', attachment: {} }] } },
     { ...settled, content: [{ type: 'text', text: `quoted: <generated_image image_ref="${ref}" />` }] },
   ]) assert.doesNotMatch(render(block), /data-dsh-image-output|dsh-imagegen-tool-gallery/);
+});
+
+
+test('plugin manager opens the same settings form for standalone and bundle installs', () => {
+  for (const [name, key] of [['plugins.bundle.config', '@dfy-plugins/dsh-image-generation'], ['plugins.row.config', '@dfy-plugins/dsh-bundle#image-generation']]) {
+    const view = entries.find(item => item.options.name === name && item.options.key === key);
+    assert.ok(view, key);
+    assert.equal(typeof view.component({ view: 'summary' }), 'string');
+    assert.equal(view.component({ view: 'page' }).props.scope, settingsScope);
+  }
 });

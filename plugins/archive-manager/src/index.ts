@@ -137,8 +137,8 @@ export function apply(ctx: Context): void {
     },
   };
 
-  ctx.webServer.register(listRoute);
-  ctx.webServer.register(unarchiveRoute);
-  ctx.webServer.register(deleteRoute);
-  ctx.webServer.register(deleteAllRoute);
+  ctx.effect(() => ctx.webServer.register(listRoute), 'archive-manager: listRoute');
+  ctx.effect(() => ctx.webServer.register(unarchiveRoute), 'archive-manager: unarchiveRoute');
+  ctx.effect(() => ctx.webServer.register(deleteRoute), 'archive-manager: deleteRoute');
+  ctx.effect(() => ctx.webServer.register(deleteAllRoute), 'archive-manager: deleteAllRoute');
 }

@@ -4,14 +4,14 @@
   "description": "DFY 插件组合包：壁纸、外观、归档管理、媒体内容、图像生成、交互可视化、任务守卫和 Codex 连接。",
   "type": "module",
   "main": "index.js",
-  "icon": "./icon.svg",
+  "icon": "./icon.png",
   "exports": {
     ".": "./index.js",
     "./package.json": "./package.json",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./locale/*.json": "./locale/*.json"
   },
-  "files": ["index.js", "icon.svg", "cordis.patch.yml", "locale/*.json"],
+  "files": ["index.js", "icon.png", "cordis.patch.yml", "locale/*.json"],
   "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
   "license": "MIT",
   "scripts": { "test": "node --test test/*.test.mjs" },

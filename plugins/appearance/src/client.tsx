@@ -1,4 +1,4 @@
-/** @dfy-plugins/dsh-appearance Client half: settings page and per-response folding. */
+/** @dfy-plugins/dsh-appearance Client half: typography settings and artifact placement. */
 import React from 'react';
 
 import {
@@ -12,7 +12,7 @@ import {
   MIN_CHAT_LINE_HEIGHT_RATIO,
   MIN_PROCESS_LINE_HEIGHT_RATIO,
   normalizeAppearanceSettings,
-  planCompletedProcessSegments,
+  planArtifactPlacements,
   type AppearanceSettings,
 } from './logic.js';
 
@@ -93,7 +93,6 @@ const STYLE_ID = '@dfy-plugins/dsh-appearance';
 const BODY_ATTRIBUTE = 'data-dsh-appearance';
 const SETTINGS_NAMESPACE = 'appearance';
 const MEDIA_CONTENT = 'img, video, audio';
-const IMAGE_PROCESS_CONTENT = 'img, [data-tool="dfy_vision_analyze"]';
 const ARTIFACT_OUTPUT = '[data-dsh-visualization-output], [data-dsh-image-output]';
 const ARTIFACT_CONTENT = '[data-dsh-artifact-content]';
 const TYPOGRAPHY_SAVE_DEBOUNCE_MS = 250;
@@ -344,30 +343,6 @@ body[${BODY_ATTRIBUTE}] :is(
   height: auto !important;
   min-height: var(--dsh-appearance-process-line-height) !important;
 }
-/* Own only process visibility while per-response folding is enabled. Do not
-   rewrite the user's official transcript preference; disabling restores it. */
-body[data-dsh-response-folding] :is([data-chat-group-key], [data-step-process-body], [data-step-process-content]) {
-  display: contents !important;
-  content-visibility: visible !important;
-}
-body[data-dsh-response-folding] [data-chat-group-key] > div:first-child,
-body[data-dsh-response-folding] [data-chat-flow-kind='turn-process'] {
-  display: none !important;
-}
-body[data-dsh-response-folding] [data-turn-process-inline],
-body[data-dsh-response-folding] [data-chat-flow-kind]:not([data-chat-flow-kind='turn-process']) {
-  content-visibility: visible !important;
-}
-body[data-dsh-response-folding] [data-chat-flow-kind][hidden]:not([data-chat-flow-kind='turn-process']):not([data-dsh-appearance-collapsed='true']) {
-  display: block !important;
-}
-[data-dsh-appearance-process][data-dsh-appearance-collapsed='true'] {
-  display: none !important;
-}
-[data-dsh-appearance-segment-think][data-dsh-appearance-collapsed='true'] {
-  display: none !important;
-}
-.dsh-appearance-process-segment { min-width: 0; }
 .dsh-appearance-artifacts {
   display: flex;
   min-width: 0;
@@ -378,7 +353,7 @@ body[data-dsh-response-folding] [data-chat-flow-kind][hidden]:not([data-chat-flo
 }
 .dsh-appearance-artifacts .dsh-imagegen-tool-gallery { width: min(560px, 100%); margin: 0; }
 .dsh-appearance-artifacts .dsh-visualize-panel { max-width: 100%; margin: 0; }
-.dsh-appearance-process-toggle {
+.dsh-appearance-reset {
   display: flex;
   width: fit-content;
   max-width: 100%;
@@ -398,12 +373,8 @@ body[data-dsh-response-folding] [data-chat-flow-kind][hidden]:not([data-chat-flo
   line-height: var(--dsh-appearance-process-line-height, 24px);
   text-align: left;
 }
-.dsh-appearance-process-toggle:hover { color: var(--dsw-alias-label-primary); }
-.dsh-appearance-process-toggle:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
-.dsh-appearance-process-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dsh-appearance-process-chevron { width: 14px; height: 14px; flex: none; margin-left: 1px; opacity: 0; transform: rotate(-90deg); transition: opacity .12s ease, transform .14s ease; }
-.dsh-appearance-process-toggle:hover .dsh-appearance-process-chevron { opacity: 1; }
-.dsh-appearance-process-toggle[aria-expanded='true'] .dsh-appearance-process-chevron { opacity: 1; transform: rotate(0); }
+.dsh-appearance-reset:hover { color: var(--dsw-alias-label-primary); }
+.dsh-appearance-reset:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
 .dsh-appearance-reset { margin-top: 16px; }
 .dsh-appearance-root { padding: 0 4px 24px; color: inherit; }
 .dsh-appearance-heading { margin: 0 0 6px; font-size: 17px; font-weight: 650; line-height: 24px; }
@@ -416,27 +387,15 @@ body[data-dsh-response-folding] [data-chat-flow-kind][hidden]:not([data-chat-flo
 .dsh-appearance-copy { min-width: 0; flex: 1; }
 .dsh-appearance-title { color: var(--dsw-alias-label-primary); font-size: 14px; font-weight: 500; line-height: 22px; }
 .dsh-appearance-description { margin-top: 2px; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 18px; }
-.dsh-appearance-switch { position: relative; width: 32px; height: 20px; flex: none; }
-.dsh-appearance-switch input { position: absolute; opacity: 0; }
-.dsh-appearance-switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--dsw-alias-bg-module-platform, rgba(127,127,127,.18)); cursor: pointer; transition: background 120ms ease; }
-.dsh-appearance-switch span::after { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: white; box-shadow: 0 1px 2px rgba(0,0,0,.3); content: ''; transition: transform 120ms ease; }
-.dsh-appearance-switch input:checked + span { background: var(--dsw-alias-state-business-primary); }
-.dsh-appearance-switch input:checked + span::after { transform: translateX(12px); }
-.dsh-appearance-switch input:focus-visible + span { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
-.dsh-appearance-switch input:disabled + span { cursor: default; opacity: .5; }
 .dsh-appearance-size-control { display: grid; width: min(260px, 42%); flex: none; grid-template-columns: minmax(120px, 1fr) 42px; align-items: center; gap: 12px; }
-.dsh-appearance-range { width: 100%; accent-color: var(--dsw-alias-state-business-primary); }
+.dsh-appearance-range { width: 100%; accent-color: var(--dsw-alias-brand-primary); }
 .dsh-appearance-size-value { color: var(--dsw-alias-label-secondary); font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
 .dsh-appearance-preview { padding: 16px; color: var(--dsw-alias-label-primary); line-height: 1.75; }
 .dsh-appearance-preview-label { margin-bottom: 6px; color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 17px; }
 .dsh-appearance-error { margin: 12px 2px 0; color: var(--dsw-alias-state-error-primary); font-size: 12px; line-height: 18px; }
 @media (max-width: 620px) {
   .dsh-appearance-row { align-items: flex-start; flex-direction: column; gap: 10px; }
-  .dsh-appearance-switch { align-self: flex-end; margin-top: -42px; }
   .dsh-appearance-size-control { width: 100%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .dsh-appearance-process-chevron, .dsh-appearance-switch span, .dsh-appearance-switch span::after { transition: none; }
 }
 `;
 
@@ -509,14 +468,6 @@ function turnFlowGroups(): HTMLElement[][] {
     if (rows.length > 0) groups.push(rows);
   }
   return groups;
-}
-
-function removeFlowMarkers(rows: readonly HTMLElement[]): void {
-  for (const row of rows) {
-    row.removeAttribute('data-dsh-appearance-process');
-    row.removeAttribute('data-dsh-appearance-segment-think');
-    row.removeAttribute('data-dsh-appearance-collapsed');
-  }
 }
 
 function flowNodeHasOutput(row: HTMLElement): boolean {
@@ -593,116 +544,26 @@ function reconcileArtifactPromotion(
   else promotions.set(marker, next);
 }
 
-function segmentSummary(
-  processRows: readonly HTMLElement[],
-  outputReasoning: readonly HTMLElement[],
-  toolCount: number,
-  contextCount: number,
-): string {
-  const reasoning = outputReasoning.length + processRows.reduce(
-    (total, row) => total + row.querySelectorAll('[data-variant="think"]').length,
-    0,
-  );
-  const media = processRows.filter((row) => row.querySelector(IMAGE_PROCESS_CONTENT) !== null).length;
-  const details = [
-    ...(reasoning === 0 ? [] : [`思考了 ${String(reasoning)} 次`]),
-    ...(contextCount === 0 ? [] : [`读取了 ${String(contextCount)} 项上下文`]),
-    ...(toolCount === 0 ? [] : [`运行了 ${String(toolCount)} 个工具`]),
-    ...(media === 0 ? [] : [`查看了 ${String(media)} 张图片`]),
-  ];
-  return details.length === 0 ? '查看过程' : details.join('、');
-}
-
-/** Exact vector used by DSH's Think disclosure (`IconChevronDownOutline14`). */
-function createDisclosureChevron(): SVGSVGElement {
-  const namespace = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(namespace, 'svg');
-  svg.setAttribute('width', '14');
-  svg.setAttribute('height', '14');
-  svg.setAttribute('viewBox', '0 0 14 14');
-  svg.setAttribute('fill', 'none');
-  svg.classList.add('dsh-appearance-process-chevron');
-  svg.setAttribute('aria-hidden', 'true');
-  const path = document.createElementNS(namespace, 'path');
-  path.setAttribute('d', 'M11.8486 5.5L11.4238 5.92383L8.69727 8.65137C8.44157 8.90706 8.21562 9.13382 8.01172 9.29785C7.79912 9.46883 7.55595 9.61756 7.25 9.66602C7.08435 9.69222 6.91565 9.69222 6.75 9.66602C6.44405 9.61756 6.20088 9.46883 5.98828 9.29785C5.78438 9.13382 5.55843 8.90706 5.30273 8.65137L2.57617 5.92383L2.15137 5.5L3 4.65137L3.42383 5.07617L6.15137 7.80273C6.42595 8.07732 6.59876 8.24849 6.74023 8.3623C6.87291 8.46904 6.92272 8.47813 6.9375 8.48047C6.97895 8.48703 7.02105 8.48703 7.0625 8.48047C7.07728 8.47813 7.12709 8.46904 7.25977 8.3623C7.40124 8.24849 7.57405 8.07732 7.84863 7.80273L10.5762 5.07617L11 4.65137L11.8486 5.5Z');
-  path.setAttribute('fill', 'currentColor');
-  svg.append(path);
-  return svg;
-}
-
-function installSegmentDisclosure(
-  marker: string,
-  outputRow: HTMLElement,
-  processRows: readonly HTMLElement[],
-  toolCount: number,
-  contextCount: number,
-  expandedOutputs: WeakSet<HTMLElement>,
-): () => void {
-  const outputReasoning = [...outputRow.querySelectorAll<HTMLElement>('[data-variant="think"]')];
-  if (processRows.length === 0 && outputReasoning.length === 0) return () => {};
-  const host = document.createElement('div');
-  host.className = 'dsh-appearance-process-segment';
-  host.dataset.dshAppearanceSegment = marker;
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'dsh-appearance-process-toggle';
-  const label = document.createElement('span');
-  label.className = 'dsh-appearance-process-label';
-  const chevron = createDisclosureChevron();
-  button.append(label, chevron);
-  host.append(button);
-  const firstRow = processRows[0] ?? outputRow;
-  (firstRow.closest('[data-chat-group-key]') ?? firstRow).before(host);
-  let expanded = expandedOutputs.has(outputRow);
-  const update = (): void => {
-    const collapsed = String(!expanded);
-    for (const row of processRows) {
-      row.dataset.dshAppearanceProcess = marker;
-      row.dataset.dshAppearanceCollapsed = collapsed;
-    }
-    for (const reasoning of outputReasoning) {
-      reasoning.dataset.dshAppearanceSegmentThink = marker;
-      reasoning.dataset.dshAppearanceCollapsed = collapsed;
-    }
-    button.setAttribute('aria-expanded', String(expanded));
-    label.textContent = segmentSummary(processRows, outputReasoning, toolCount, contextCount);
-  };
-  const toggle = (): void => {
-    expanded = !expanded;
-    if (expanded) expandedOutputs.add(outputRow);
-    else expandedOutputs.delete(outputRow);
-    update();
-  };
-  button.addEventListener('click', toggle);
-  update();
-  return () => {
-    button.removeEventListener('click', toggle);
-    host.remove();
-    removeFlowMarkers([...processRows, ...outputReasoning]);
-  };
-}
-
-function planTurnLayout(rows: HTMLElement[], knownOutputs: WeakSet<HTMLElement>) {
+function planTurnArtifactPlacements(rows: HTMLElement[], knownOutputs: WeakSet<HTMLElement>) {
   const nodes = rows.map((row) => ({
     kind: row.dataset.chatFlowKind ?? '',
     hasOutput: flowNodeHasOutput(row),
     hasArtifact: flowNodeHasArtifact(row),
   }));
   nodes.forEach((node, index) => { if (node.hasOutput) knownOutputs.add(rows[index]!); });
-  return planCompletedProcessSegments(nodes).map((segment) => {
+  return planArtifactPlacements(nodes).map((segment) => {
     const outputRow = rows[segment.outputIndex]!;
-    const processRows = segment.collapseIndices.flatMap((index) => rows[index] === undefined ? [] : [rows[index]!]);
     const artifactRows = segment.artifactIndices.flatMap((index) => rows[index] === undefined ? [] : [rows[index]!]);
-    return { ...segment, outputRow, processRows, artifactRows };
+    return { ...segment, outputRow, artifactRows };
   });
 }
 
 function mutationChangesTurnFlow(mutation: MutationRecord, knownOutputs: WeakSet<HTMLElement>): boolean {
   const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
-  if (target?.closest('[data-dsh-appearance-artifacts], [data-dsh-appearance-segment]') != null) return false;
+  if (target?.closest('[data-dsh-appearance-artifacts]') != null) return false;
   if (mutation.type === 'attributes') return true;
   // React can create the Assistant row before its first text delta. Observe
-  // that first visible output, but do not rebuild disclosures for every token.
+  // that first visible output, but do not move artifacts again for every token.
   const assistant = target?.closest<HTMLElement>('[data-chat-flow-kind="assistant-step"]');
   if (assistant != null && !knownOutputs.has(assistant)
     && target?.closest('[data-variant="think"]') == null && flowNodeHasOutput(assistant)) return true;
@@ -712,13 +573,9 @@ function mutationChangesTurnFlow(mutation: MutationRecord, knownOutputs: WeakSet
     && (node.matches(selector) || node.querySelector(selector) !== null));
 }
 
-function installTurnLayouts(
-  scope: SettingsScope<Partial<AppearanceSettings>>,
-): () => void {
+function installArtifactPlacements(): () => void {
   let frame: number | undefined;
-  let disclosureDisposers: Array<() => void> = [];
   const promotions = new Map<string, ArtifactPromotion>();
-  const expandedOutputs = new WeakSet<HTMLElement>();
   const outputIds = new WeakMap<HTMLElement, number>();
   let nextOutputId = 0;
   let knownOutputs = new WeakSet<HTMLElement>();
@@ -730,10 +587,8 @@ function installTurnLayouts(
   const refresh = (): void => {
     frame = undefined;
     observer.disconnect();
-    for (const dispose of disclosureDisposers.reverse()) dispose();
-    disclosureDisposers = [];
     knownOutputs = new WeakSet<HTMLElement>();
-    const segments = turnFlowGroups().flatMap((rows) => planTurnLayout(rows, knownOutputs)).map((segment) => {
+    const segments = turnFlowGroups().flatMap((rows) => planTurnArtifactPlacements(rows, knownOutputs)).map((segment) => {
       let id = outputIds.get(segment.outputRow);
       if (id === undefined) {
         id = nextOutputId++;
@@ -749,13 +604,8 @@ function installTurnLayouts(
       promotion.dispose();
       promotions.delete(marker);
     }
-    const collapseProcess = readSettings(scope).collapseCompletedProcess;
-    document.body.toggleAttribute('data-dsh-response-folding', collapseProcess);
     for (const segment of segments) {
       reconcileArtifactPromotion(promotions, segment.marker, segment.outputRow, segment.artifactRows);
-      if (collapseProcess) disclosureDisposers.push(installSegmentDisclosure(
-        segment.marker, segment.outputRow, segment.processRows, segment.toolCount, segment.contextCount, expandedOutputs,
-      ));
     }
     observer.observe(document.body, {
       childList: true,
@@ -766,19 +616,12 @@ function installTurnLayouts(
     });
   };
   refresh();
-  const scheduleRefresh = (): void => {
-    if (frame === undefined) frame = window.requestAnimationFrame(refresh);
-  };
-  const unsubscribers = [scope.subscribe(scheduleRefresh)];
 
   return () => {
-    for (const unsubscribe of unsubscribers) unsubscribe();
     observer.disconnect();
     if (frame !== undefined) window.cancelAnimationFrame(frame);
-    for (const dispose of disclosureDisposers.reverse()) dispose();
     for (const promotion of promotions.values()) promotion.dispose();
     promotions.clear();
-    document.body.removeAttribute('data-dsh-response-folding');
   };
 }
 
@@ -851,7 +694,7 @@ function AppearancePage({ scope }: { scope: SettingsScope<Partial<AppearanceSett
     setProcessLineHeightRatio(settings.processLineHeightRatio);
   }, [settings.chatFontSize, settings.chatLineHeightRatio, settings.processLineHeightRatio]);
 
-  const save = (field: keyof AppearanceSettings, value: boolean | number): void => {
+  const save = (field: keyof AppearanceSettings, value: number): void => {
     setError(null);
     void scope.set(field, value).catch((cause: unknown) => setError(String(cause)));
   };
@@ -859,28 +702,11 @@ function AppearancePage({ scope }: { scope: SettingsScope<Partial<AppearanceSett
   return (
     <div className="dsh-appearance-root">
       <h3 className="dsh-appearance-heading">外观</h3>
-      <p className="dsh-appearance-intro">只改变聊天的显示方式，不删除轨迹、工具结果或上下文数据。</p>
+      <p className="dsh-appearance-intro">调整对话字号、回复行距和过程行距。</p>
 
       <section className="dsh-appearance-section">
         <h4 className="dsh-appearance-section-title">对话</h4>
         <div className="dsh-appearance-card">
-          <div className="dsh-appearance-row">
-            <div className="dsh-appearance-copy">
-              <div className="dsh-appearance-title">每段回复前收起过程</div>
-              <div className="dsh-appearance-description">保留每次可见文本；分别收起它前面的上下文、思考、Skill、工具调用和图片分析，可随时展开。</div>
-            </div>
-            <label className="dsh-appearance-switch">
-              <input
-                type="checkbox"
-                checked={settings.collapseCompletedProcess}
-                disabled={!writable}
-                aria-label="每段回复前收起过程"
-                onChange={(event) => save('collapseCompletedProcess', event.currentTarget.checked)}
-              />
-              <span />
-            </label>
-          </div>
-
           <div className="dsh-appearance-row">
             <div className="dsh-appearance-copy">
               <div className="dsh-appearance-title">对话字号</div>
@@ -980,7 +806,7 @@ function AppearancePage({ scope }: { scope: SettingsScope<Partial<AppearanceSett
         && processLineHeightRatio === DEFAULT_PROCESS_LINE_HEIGHT_RATIO ? null : (
         <button
           type="button"
-          className="dsh-appearance-process-toggle dsh-appearance-reset"
+          className="dsh-appearance-reset"
           disabled={!writable}
           onClick={() => {
             fontSizeSave.cancel();
@@ -1012,7 +838,7 @@ export function apply(ctx: ClientCtx): void {
   const scope = ctx.configForms.get<Partial<AppearanceSettings>>(SETTINGS_NAMESPACE );
   ctx.effect(installStyles, 'dsh-appearance: client styles');
   ctx.effect(() => installPreferences(scope), 'dsh-appearance: apply preferences');
-  ctx.effect(() => installTurnLayouts(scope), 'dsh-appearance: per-response layouts');
+  ctx.effect(installArtifactPlacements, 'dsh-appearance: artifact placement');
   ctx.inject(['desktopContextMenu'], (menuCtx) => {
     menuCtx.effect(() => installFileLinkContextMenu(menuCtx), 'dsh-appearance: file link context menu');
   });

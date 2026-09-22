@@ -21,7 +21,7 @@ test('wallpaper migrates the legacy directory without losing the original image 
 
     const routes = [];
     const { apply } = await import('../lib/index.js');
-    apply({ webServer: { register: (route) => routes.push(route) } });
+    apply({ effect: setup => setup(), webServer: { register: (route) => routes.push(route) } });
     const stateRoute = routes.find((route) => route.path === '/api/dsh-wallpaper/state');
     assert.ok(stateRoute);
     let status;

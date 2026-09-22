@@ -40,8 +40,8 @@ test('image generation keeps package, Cordis, API, settings, Tool and Skill ids 
   assert.match(client, /data-dsh-artifact-content="image"/);
   assert.match(client, /'\/api\/dsh-image-generation\/resource'/);
   assert.doesNotMatch(client, /dsh-media-blocks\/resource/);
-  assert.match(client, /type="password"/);
-  assert.match(client, /已配置 —— 输入新值可替换/);
+  assert.match(client, /<SettingsSecretField/);
+  assert.match(client, /已保存的密钥不会回显/);
   assert.match(client, /ctx\.effect\(installStyles, 'dsh-image-generation: client styles'\)/);
   assert.match(client, /existing\.replaceWith\(tag\)/);
   assert.doesNotMatch(client, /<style>\{STYLES\}<\/style>/);

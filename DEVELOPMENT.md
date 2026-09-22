@@ -77,3 +77,13 @@ return () => document.querySelector(`[data-plugin='${STYLE_ID}']`)?.remove();
 - 样式由 `ctx.effect(installStyles, ...)` 注册。
 - HMR 安装使用新节点替换旧节点。
 - Slot 组件中不存在承载插件全局样式的内联 `<style>`。
+
+## Host HTTP 路由生命周期
+
+`webServer.register()` 返回清理函数，调用本身不会自动随插件卸载注销。必须在拥有该路由的 Context 上登记 effect，例如：
+
+```ts
+ctx.effect(() => ctx.webServer.register(route), 'example: HTTP route');
+```
+
+使用 `ctx.inject()` 的可选服务时，effect 应属于回调的子 Context。验证时通过官方管理器关闭、重新开启插件及整个组合包，确认没有重复路由，并保留原配置与条目停用选择。

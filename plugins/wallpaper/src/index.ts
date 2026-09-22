@@ -356,7 +356,7 @@ export function apply(ctx: Context): void {
     },
   };
 
-  ctx.webServer.register(stateRoute);
-  ctx.webServer.register(settingsRoute);
-  ctx.webServer.register(imageRoute);
+  ctx.effect(() => ctx.webServer.register(stateRoute), 'wallpaper: stateRoute');
+  ctx.effect(() => ctx.webServer.register(settingsRoute), 'wallpaper: settingsRoute');
+  ctx.effect(() => ctx.webServer.register(imageRoute), 'wallpaper: imageRoute');
 }

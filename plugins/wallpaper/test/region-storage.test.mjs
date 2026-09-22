@@ -13,7 +13,7 @@ test('upload, settings persistence and deletion keep the three image stores inde
   try {
     const routes = [];
     const { apply } = await import('../lib/index.js');
-    apply({ webServer: { register: route => routes.push(route) } });
+    apply({ effect: setup => setup(), webServer: { register: route => routes.push(route) } });
     async function request(path, method = 'GET', body = '', headers = {}) {
       const route = routes.find(route => route.path === path.split('?')[0]);
       const req = Object.assign(Readable.from([Buffer.from(body)]), { url: path, method, headers });

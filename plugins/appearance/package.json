@@ -1,7 +1,7 @@
 {
   "name": "@dfy-plugins/dsh-appearance",
   "version": "0.1.5",
-  "description": "DFY DSH 对话外观设置：逐段折叠回复前的过程轨迹并调节聊天字号。",
+  "description": "DFY DSH 对话外观设置：调节聊天字号、回复行距与过程行距，并扩展本地文件的打开方式。",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -13,11 +13,13 @@
     "./client": {
       "default": "./lib/client.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
   },
   "files": [
     "lib",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "locale/*.json"
   ],
   "publishConfig": {
     "access": "public",

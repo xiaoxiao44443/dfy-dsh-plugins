@@ -12,7 +12,7 @@ const built = await build({
   format: 'cjs',
   platform: 'browser',
   target: 'es2022',
-  external: ['react', 'react/jsx-runtime'],
+  external: ['react', 'react/jsx-runtime', '@deepseek-ai/dsh-client-ui-primitives'],
 });
 
 class FileButton {
@@ -61,7 +61,7 @@ function fileMenu(path, { cwd, artifacts = [], visualizationContainer = false, .
   runInNewContext(built.outputFiles[0].text, {
     module,
     exports: module.exports,
-    require: createRequire(import.meta.url),
+    require: (id) => id === '@deepseek-ai/dsh-client-ui-primitives' ? { Switch: () => null } : createRequire(import.meta.url)(id),
     URL,
     HTMLButtonElement: FileButton,
     document: { body, baseURI: 'http://127.0.0.1:57841/' },

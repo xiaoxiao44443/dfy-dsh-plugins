@@ -22,7 +22,7 @@ dsh plugin --profile web add ./plugins/image-generation
 
 需要让已上传图片在原生多模态、视觉插件和文本模型之间动态投影时，可再安装 `./plugins/media-blocks`。
 
-重启 Harness 后，在“设置 → 插件 → 图像生成”中填写：
+重启 Harness 后，在“插件 → DFY 插件组合包 → 图像生成”中填写（独立安装时直接打开该插件的详情页）：
 
 - API Base URL，例如 `https://api.teamorouter.com/v1`
 - API Key

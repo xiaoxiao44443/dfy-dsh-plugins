@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { glob, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { createRequire, isBuiltin } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
@@ -81,11 +81,16 @@ try {
       if (range !== 'workspace:^' && range !== 'workspace:*') continue;
       assert.equal(manifest.dependencies[name], `${range === 'workspace:^' ? '^' : ''}${packages.get(name).manifest.version}`, `${source.name}: incorrect packed version for ${name}`);
     }
-    for (const path of [manifest.main, manifest.types, manifest.dsh?.bundle?.patch, ...targets(manifest.exports)].filter(Boolean)) {
+    for (const path of [manifest.main, manifest.types, manifest.icon, ...targets(manifest.dsh?.bundle?.patch), ...targets(manifest.exports)].filter(Boolean)) {
       const absolute = resolve(packageRoot, path);
       assert.ok(absolute.startsWith(`${packageRoot}${sep}`), `${source.name}: export outside package: ${path}`);
-      assert.ok((await stat(absolute)).isFile(), `${source.name}: missing export: ${path}`);
+      const matches = path.includes('*') ? await Array.fromAsync(glob(path, { cwd: packageRoot })) : [path];
+      assert.ok(matches.length > 0, `${source.name}: missing export: ${path}`);
+      for (const match of matches) {
+        assert.ok((await stat(resolve(packageRoot, match))).isFile(), `${source.name}: missing export: ${match}`);
+      }
     }
+    if (manifest.icon) assert.ok((await stat(resolve(packageRoot, manifest.icon))).size <= 256 * 1024, `${source.name}: icon exceeds DSH's 256 KiB limit`);
     assert.ok((await stat(join(packageRoot, 'README.md'))).isFile());
     assert.ok((await stat(join(packageRoot, 'LICENSE'))).isFile());
     for (const file of await files(packageRoot)) {
