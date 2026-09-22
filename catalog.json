@@ -2,6 +2,24 @@
   "version": 1,
   "plugins": [
     {
+      "name": "@dfy-plugins/dsh-bundle",
+      "title": "DFY 插件组合包",
+      "category": "组合包",
+      "description": "集中安装 DFY 插件，统一更新；进入详情可分别启停各个插件。",
+      "note": "包含以下单独插件，可选整包或按需安装。",
+      "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/bundle",
+      "includes": [
+        "@dfy-plugins/dsh-wallpaper",
+        "@dfy-plugins/dsh-appearance",
+        "@dfy-plugins/dsh-archive-manager",
+        "@dfy-plugins/dsh-media-blocks",
+        "@dfy-plugins/dsh-image-generation",
+        "@dfy-plugins/dsh-visualize",
+        "@dfy-plugins/dsh-turn-guard",
+        "@dfy-plugins/dsh-codex-bridge"
+      ]
+    },
+    {
       "name": "@dfy-plugins/dsh-wallpaper",
       "title": "壁纸",
       "category": "界面",
@@ -26,7 +44,7 @@
       "name": "@dfy-plugins/dsh-media-blocks",
       "title": "媒体内容",
       "category": "图片",
-      "description": "展示持久图片内容，并为视觉和生图插件提供媒体增强。",
+      "description": "为原生图片内容和图像生成提供展示与预览增强。",
       "repository": "https://github.com/xiaoxiao44443/dfy-dsh-plugins/tree/main/plugins/media-blocks"
     },
     {

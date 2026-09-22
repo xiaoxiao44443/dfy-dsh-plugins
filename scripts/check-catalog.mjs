@@ -25,6 +25,7 @@ for (const entry of catalog.plugins) {
   assert.ok(repository.protocol === 'https:' && repository.hostname === 'github.com' && !repository.port && !repository.username && !repository.password && /^\/[^/]+\/[^/]+(?:\/|$)/u.test(repository.pathname), `无效的 GitHub 地址：${entry.name}`)
   const manifest = packages.get(entry.name)
   assert.ok(manifest, `插件目录中不存在对应的包：${entry.name}`)
+  assert.ok(!manifest.private, `已停止发布的私有包不能加入目录：${entry.name}`)
   assert.ok(typeof manifest.dsh?.bundle?.patch === 'string', `不是可安装的 DSH 插件：${entry.name}`)
   if (entry.includes !== undefined) {
     assert.deepEqual(entry.includes, manifest.dfy?.includes, `组合包目录与发布清单不一致：${entry.name}`)
