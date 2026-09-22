@@ -33,4 +33,4 @@
 - 实际 DSH 运行时导出、工具与审批行为、独立插件归档安装通过。
 - 组合包启动、组件启停、整包启停及独立插件迁移验收通过。
 
-安装组合包：`dsh plugin install @dfy-plugins/dsh-bundle`。已有独立安装请先按[组合包迁移说明](../../plugins/bundle/README.md)处理重复组件。
+安装组合包：`dsh plugin --profile web add @dfy-plugins/dsh-bundle@latest`。已有独立安装请先按[组合包迁移说明](../../plugins/bundle/README.md)处理重复组件。
