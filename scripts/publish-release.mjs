@@ -15,6 +15,7 @@ assert.ok(Array.isArray(artifacts) && artifacts.length > 0, 'Run pnpm release:pr
 const pending = [];
 // Finish the whole preflight before uploading any package.
 for (const artifact of artifacts) {
+  assert.notEqual(artifact.name, '@dfy-plugins/dsh-vision', 'The vision plugin is retired and must not be published');
   assert.equal(basename(artifact.filename), artifact.filename);
   const path = join(root, 'release/npm', artifact.filename);
   const integrity = `sha512-${createHash('sha512').update(await readFile(path)).digest('base64')}`;

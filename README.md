@@ -11,7 +11,7 @@
 
 ## 插件
 
-- [`@dfy-plugins/dsh-bundle`](plugins/bundle)：包含以下 8 个维护中插件的原生组合包，一次安装、统一更新，在官方详情页分别启停；也可继续单独安装。
+- [`@dfy-plugins/dsh-bundle`](plugins/bundle)：包含以下维护中插件的原生组合包，一次安装、统一更新，在官方详情页分别启停；也可继续单独安装。
 
 - [`@dfy-plugins/dsh-archive-manager`](plugins/archive-manager)：按项目查看已归档对话，支持取消归档和永久删除。
 - [`@dfy-plugins/dsh-appearance`](plugins/appearance)：在设置侧栏提供独立“外观”页，每段回复出现时收起前面的过程轨迹，并可调节对话字号。

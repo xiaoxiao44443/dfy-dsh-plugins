@@ -19,10 +19,6 @@
     "lib",
     "cordis.patch.yml"
   ],
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  },
   "license": "MIT",
   "dependencies": {
     "@dfy-plugins/image-protocol": "workspace:^",
@@ -104,5 +100,6 @@
   "keywords": [
     "deepseek-harness",
     "dsh-plugin"
-  ]
+  ],
+  "private": true
 }
