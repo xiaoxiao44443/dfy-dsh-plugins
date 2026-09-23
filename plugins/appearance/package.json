@@ -1,6 +1,6 @@
 {
   "name": "@dfy-plugins/dsh-appearance",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "DFY DSH 对话外观设置：调节聊天字号、回复行距与过程行距，并扩展本地文件的打开方式。",
   "type": "module",
   "main": "lib/index.js",

@@ -93,8 +93,14 @@ function resultText(block: ToolCallViewProps['block']): string | null {
   return parts.join('\n') || null;
 }
 
+function toolArguments(block: ToolCallViewProps['block']): string {
+  if ('kind' in block) return block.call?.argsRaw ?? '';
+  // rc.1 exposes preparing calls before their arguments are available.
+  return 'argsRaw' in block ? block.argsRaw : '';
+}
+
 function requestedTitle(block: ToolCallViewProps['block']): string | undefined {
-  const raw = ('kind' in block ? block.call?.argsRaw : block.argsRaw) ?? '';
+  const raw = toolArguments(block);
   try {
     const value = JSON.parse(raw) as unknown;
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
@@ -106,7 +112,7 @@ function requestedTitle(block: ToolCallViewProps['block']): string | undefined {
 }
 
 function requestedFilePath(block: ToolCallViewProps['block']): string | undefined {
-  const raw = ('kind' in block ? block.call?.argsRaw : block.argsRaw) ?? '';
+  const raw = toolArguments(block);
   try {
     const value = JSON.parse(raw) as unknown;
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
@@ -118,7 +124,7 @@ function requestedFilePath(block: ToolCallViewProps['block']): string | undefine
 }
 
 function toolInput(block: ToolCallViewProps['block']): string | null {
-  const raw = (('kind' in block ? block.call?.argsRaw : block.argsRaw) ?? '').trim();
+  const raw = toolArguments(block).trim();
   if (raw.length === 0) return null;
   try {
     return JSON.stringify(JSON.parse(raw), null, 2);
@@ -215,6 +221,7 @@ function VisualizationFrame({
 
 function VisualizationToolRow({ block, inspect }: ToolCallViewProps): React.ReactElement {
   const settled = 'kind' in block;
+  const preparing = !settled && 'phase' in block && block.phase === 'preparing';
   const stopped = settled && block.error?.code === 'interrupted';
   const state = !settled ? 'running' : stopped ? 'stopped' : block.isError ? 'error' : 'ok';
   const meta = settled && !block.isError ? parseVisualizationMeta(block.meta) : undefined;
@@ -222,7 +229,7 @@ function VisualizationToolRow({ block, inspect }: ToolCallViewProps): React.Reac
   const sourceFile = requestedFilePath(block);
   const input = toolInput(block);
   const output = resultText(block);
-  const summary = state === 'running'
+  const summary = preparing ? '正在准备可视化' : state === 'running'
     ? pendingTitle === undefined ? '正在创建可视化' : `正在创建：${pendingTitle}`
     : state === 'error'
       ? firstLine(output ?? '可视化创建失败')

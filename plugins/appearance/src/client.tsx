@@ -107,27 +107,32 @@ function resolveWorkspacePath(cwd: string | undefined, path: string): string {
   return `${base}/${relative}`;
 }
 
+function filePathFromLabel(label: string): string {
+  // rc.1 names file mentions "Open … in sidebar"; older clients use "Open …".
+  const match = /^(?:在侧边栏)?打开\s+(.+)$/u.exec(label.trim())
+    ?? /^open\s+(.+?)(?:\s+in sidebar)?$/iu.exec(label.trim());
+  return match?.[1]?.trim() ?? '';
+}
+
 function fileLinkButton(target: Element): HTMLButtonElement | null {
   const button = target.closest('button');
   if (!(button instanceof HTMLButtonElement)) return null;
   const label = button.getAttribute('aria-label') ?? '';
   const text = button.textContent?.trim() ?? '';
   if (button.closest('[data-produced-files-row="true"]') !== null) return button;
-  if (/^打开\s+/u.test(label)) return button;
+  if (filePathFromLabel(label).length > 0) return button;
   return button.closest('[data-disclosure-row]') !== null && /\.[a-z0-9]{1,16}$/iu.test(text)
     ? button
     : null;
 }
 
 function normalizedFileIdentity(value: unknown): string {
-  return String(value ?? '').trim().replace(/^打开\s+/u, '').replaceAll('\\', '/').toLowerCase();
+  return String(value ?? '').trim().replaceAll('\\', '/').toLowerCase();
 }
 
 function visualizationLinkForFile(button: HTMLButtonElement | null): string {
   if (button === null) return '';
-  const identity = normalizedFileIdentity(
-    button.getAttribute('title') ?? button.getAttribute('aria-label') ?? button.textContent,
-  );
+  const identity = normalizedFileIdentity(filePathForButton(button));
   const basename = identity.split('/').at(-1) ?? identity;
   let scope = button.parentElement;
   while (scope !== null) {
@@ -166,8 +171,7 @@ function filePathForButton(button: HTMLButtonElement | null): string {
   const title = button.getAttribute('title')?.trim() ?? '';
   if (title.length > 0) return title;
   const label = button.getAttribute('aria-label')?.trim() ?? '';
-  const labeledPath = label.replace(/^(?:打开|open)\s+/iu, '').trim();
-  return labeledPath !== label ? labeledPath : button.textContent?.trim() ?? '';
+  return filePathFromLabel(label) || button.textContent?.trim() || '';
 }
 
 function isAbsoluteHostPath(path: string): boolean {

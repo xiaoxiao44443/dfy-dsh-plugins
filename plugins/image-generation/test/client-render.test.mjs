@@ -110,3 +110,12 @@ test('plugin manager opens the same settings form for standalone and bundle inst
     assert.equal(view.component({ view: 'page' }).props.scope, settingsScope);
   }
 });
+
+test('rc.1 preparation has no arguments or stale images and dispatched calls retain their prompt', () => {
+  const preparing = render({ phase: 'preparing', callId: 'preparing-image', name: 'dfy_image_generate', subCalls: [] });
+  assert.match(preparing, /正在准备图像生成/);
+  assert.doesNotMatch(preparing, /data-dsh-image-output|dsh-imagegen-tool-gallery/);
+  const dispatched = render({ phase: 'start', argsRaw: '{"prompt":"开始绘制"}', subCalls: [] });
+  assert.match(dispatched, /开始绘制/);
+  assert.doesNotMatch(dispatched, /正在准备图像生成/);
+});

@@ -1,6 +1,6 @@
 {
   "name": "@dfy-plugins/dsh-bundle",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DFY 插件组合包：壁纸、外观、归档管理、媒体内容、图像生成、交互可视化、任务守卫和 Codex 连接。",
   "type": "module",
   "main": "index.js",

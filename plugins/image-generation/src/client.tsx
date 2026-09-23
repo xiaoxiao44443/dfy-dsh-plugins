@@ -336,7 +336,7 @@ function toolOutput(block: ToolCallViewProps['block']): string | null {
 }
 
 function toolPrompt(block: ToolCallViewProps['block']): string {
-  const raw = ('kind' in block ? block.call?.argsRaw : block.argsRaw) ?? '';
+  const raw = ('kind' in block ? block.call?.argsRaw : 'argsRaw' in block ? block.argsRaw : undefined) ?? '';
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     if (typeof parsed.prompt === 'string' && parsed.prompt.trim().length > 0) return firstLine(parsed.prompt.trim());
@@ -360,7 +360,8 @@ function resultImages(block: ToolCallViewProps['block']): DisplayImage[] {
   }
   if (images.length > 0) return images;
 
-  const content = block.content;
+  // Historical plugin blocks are external data, validated by our own guards.
+  const content: readonly unknown[] = block.content;
   for (const item of content) {
     if (isSessionImageBlock(item)) {
       add(item.ref, item.image.name);
@@ -389,10 +390,11 @@ function resultImages(block: ToolCallViewProps['block']): DisplayImage[] {
 
 function ImageToolRow({ block, inspect }: ToolCallViewProps): React.ReactElement {
   const settled = 'kind' in block;
+  const preparing = !settled && 'phase' in block && block.phase === 'preparing';
   const output = toolOutput(block);
   const images = resultImages(block);
   const state = !settled ? 'running' : block.error?.code === 'interrupted' ? 'stopped' : block.isError ? 'error' : 'ok';
-  const summary = state === 'error' && output !== null ? firstLine(output) : toolPrompt(block);
+  const summary = preparing ? '正在准备图像生成' : state === 'error' && output !== null ? firstLine(output) : toolPrompt(block);
   const [open, setOpen] = React.useState(false);
   const expandable = output !== null;
   const loader = React.useCallback<ImageLoader>((ref) => loadReferencedImage(ref), []);

@@ -1,6 +1,6 @@
 {
   "name": "@dfy-plugins/dsh-visualize",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "在 DeepSeek Harness 对话中以会话级 artifact 安全展示交互式 HTML 可视化。",
   "type": "module",
   "main": "lib/index.js",

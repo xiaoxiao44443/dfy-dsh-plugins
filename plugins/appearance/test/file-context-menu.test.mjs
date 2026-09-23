@@ -16,19 +16,20 @@ const built = await build({
 });
 
 class FileButton {
-  constructor(path, scope, { produced = false, disabled = false, title = true } = {}) {
+  constructor(path, scope, { produced = false, disabled = false, title = true, label } = {}) {
     this.path = path;
     this.parentElement = scope;
     this.produced = produced;
     this.disabled = disabled;
     this.title = title;
+    this.label = label;
     this.textContent = path.split(/[\\/]/u).at(-1);
     this.clicks = 0;
   }
 
   getAttribute(name) {
     if (name === 'title') return this.title ? this.path : null;
-    if (name === 'aria-label') return this.produced ? null : `打开 ${this.path}`;
+    if (name === 'aria-label') return this.label ?? (this.produced ? null : `打开 ${this.path}`);
     return null;
   }
 
@@ -167,4 +168,31 @@ test('Open File still invokes the official file button and preserves its disable
   assert.equal(button.clicks, 1);
   button.disabled = true;
   assert.equal(open.enabled(context), false);
+});
+
+test('rc.1 inline file mentions retain file and browser actions in Chinese and English', () => {
+  const path = 'E:\\项目文件\\deepseek鲸鱼娘\\视频无缝循环播放器.html';
+  const expected = 'file:///E:/%E9%A1%B9%E7%9B%AE%E6%96%87%E4%BB%B6/deepseek%E9%B2%B8%E9%B1%BC%E5%A8%98/%E8%A7%86%E9%A2%91%E6%97%A0%E7%BC%9D%E5%BE%AA%E7%8E%AF%E6%92%AD%E6%94%BE%E5%99%A8.html';
+  for (const label of [`在侧边栏打开 ${path}`, `Open ${path} in sidebar`]) {
+    for (const title of [true, false]) {
+      const { open, context, button } = fileMenu(path, { label, title });
+      assert.equal(open.linkURL(context), expected);
+      open.onSelect(context);
+      assert.equal(button.clicks, 1);
+      button.disabled = true;
+      assert.equal(open.enabled(context), false);
+    }
+  }
+});
+
+test('sidebar labels resolve relative files and keep matching visualization URLs', () => {
+  const path = 'sub folder/player #100%.html';
+  const cwd = 'C:\\workspace';
+  const artifactURL = 'http://127.0.0.1:57841/api/dsh-visualize/artifacts/session/id/index.html';
+  for (const label of [`在侧边栏打开 ${path}`, `Open ${path} in sidebar`]) {
+    const local = fileMenu(path, { cwd, label, title: false });
+    assert.equal(local.open.linkURL(local.context), 'file:///C:/workspace/sub%20folder/player%20%23100%25.html');
+    const artifact = fileMenu(path, { cwd, label, title: false, artifacts: [{ url: artifactURL, source: path }] });
+    assert.equal(artifact.open.linkURL(artifact.context), artifactURL);
+  }
 });

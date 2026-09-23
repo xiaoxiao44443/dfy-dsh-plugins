@@ -14,7 +14,7 @@
 - [`@dfy-plugins/dsh-bundle`](plugins/bundle)：包含以下维护中插件的原生组合包，一次安装、统一更新，在官方详情页分别启停；也可继续单独安装。
 
 - [`@dfy-plugins/dsh-archive-manager`](plugins/archive-manager)：按项目查看已归档对话，支持取消归档和永久删除。
-- [`@dfy-plugins/dsh-appearance`](plugins/appearance)：在设置侧栏提供独立“外观”页，每段回复出现时收起前面的过程轨迹，并可调节对话字号。
+- [`@dfy-plugins/dsh-appearance`](plugins/appearance)：在设置侧栏提供独立“外观”页，可调节对话字号、行距并为本地文件提供右键菜单。
 - [`@dfy-plugins/dsh-wallpaper`](plugins/wallpaper)：为 Harness 设置可配置图片背景，支持多种适应模式、模糊、遮罩和界面透明度。
 - [`@dfy-plugins/dsh-media-blocks`](plugins/media-blocks)：提供持久聊天媒体块和可扩展的多媒体展示；上传入口使用 DSH 自带的附件按钮，不再添加重复的图片按钮。图片基础协议来自公共库，未来视频、网页等块仍可通过 `MediaResourceMap` 扩展。
 - [`@dfy-plugins/dsh-vision`](plugins/vision)：已停止维护，仅保留历史源码。
@@ -26,7 +26,7 @@
 当前维护版本最低要求 **DSH 0.1.7-alpha.1**，开发依赖固定到该版本，不再保留旧运行时 API 的兼容分支。
 外观插件提供对话字号、行距和本地文件菜单设置，过程折叠使用 DSH 自带的展示模式。旧设置迁入新版配置树，旧对话由桌面端的历史内容准入修复和官方 V4 迁移共同处理。
 视觉理解插件已停止维护，npm 上的已发布版本已撤回。仓库仅保留历史源码，并从工作区构建、npm 发布批次和桌面插件目录移除；图片识别使用模型原生多模态能力。
-验证范围见 [0.1.7-alpha.1 适配记录](docs/compatibility-0.1.7-alpha.1.md)。
+已适配 DSH **0.1.7-rc.1** 的文件链接与工具准备阶段，详见 [rc.1 配套更新](docs/releases/dsh-0.1.7-rc.1.md)；最低版本与开发依赖保持不变。基础验证范围见 [0.1.7-alpha.1 适配记录](docs/compatibility-0.1.7-alpha.1.md)。
 
 所有发布包使用 `@dfy-plugins` npm scope；运行时 ID、API、CSS 和持久化目录按各自的兼容性要求命名，
 不会随包名做全局替换。新增或修改插件前请先阅读：
