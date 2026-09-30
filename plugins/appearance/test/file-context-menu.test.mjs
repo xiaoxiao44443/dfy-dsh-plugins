@@ -16,25 +16,34 @@ const built = await build({
 });
 
 class FileButton {
-  constructor(path, scope, { produced = false, disabled = false, title = true, label } = {}) {
+  constructor(path, scope, { produced = false, disabled = false, title = true, label,
+    changed = false, descriptions = [{ path, hidden: true, inside: true }], text } = {}) {
     this.path = path;
     this.parentElement = scope;
     this.produced = produced;
     this.disabled = disabled;
     this.title = title;
     this.label = label;
-    this.textContent = path.split(/[\\/]/u).at(-1);
+    this.textContent = text ?? path.split(/[\\/]/u).at(-1);
+    this.changed = changed;
+    this.card = { contains: (element) => element.inside };
+    this.descriptions = descriptions.map((description, index) => ({
+      id: `_r_${index}_`, textContent: description.path, hidden: description.hidden, inside: description.inside,
+    }));
+    this.ownerDocument = { getElementById: (id) => this.descriptions.find((description) => description.id === id) ?? null };
     this.clicks = 0;
   }
 
   getAttribute(name) {
     if (name === 'title') return this.title ? this.path : null;
     if (name === 'aria-label') return this.label ?? (this.produced ? null : `打开 ${this.path}`);
+    if (name === 'aria-describedby') return this.changed ? this.descriptions.map(description => description.id).join(' ') : null;
     return null;
   }
 
   closest(selector) {
     if (selector === 'button') return this;
+    if (selector === '[data-changed-files]') return this.changed ? this.card : null;
     if (selector === '[data-produced-files-row="true"]') return this.produced ? this.parentElement : null;
     return null;
   }
@@ -42,7 +51,7 @@ class FileButton {
   click() { this.clicks += 1; }
 }
 
-function fileMenu(path, { cwd, artifacts = [], visualizationContainer = false, ...buttonOptions } = {}) {
+function fileMenu(path, { cwd, artifacts = [], visualizationContainer = false, recognized = true, ...buttonOptions } = {}) {
   const body = {
     parentElement: null,
     matches: () => false,
@@ -85,7 +94,7 @@ function fileMenu(path, { cwd, artifacts = [], visualizationContainer = false, .
   module.exports.apply(ctx);
   const open = contributions.find((entry) => entry.id === 'appearance.open-file');
   assert.ok(open);
-  assert.equal(open.when(context), true);
+  assert.equal(open.when(context), recognized);
   return { open, context, button };
 }
 
@@ -194,5 +203,49 @@ test('sidebar labels resolve relative files and keep matching visualization URLs
     assert.equal(local.open.linkURL(local.context), 'file:///C:/workspace/sub%20folder/player%20%23100%25.html');
     const artifact = fileMenu(path, { cwd, label, title: false, artifacts: [{ url: artifactURL, source: path }] });
     assert.equal(artifact.open.linkURL(artifact.context), artifactURL);
+  }
+});
+
+test('changed-file cards and rows use the described full path instead of captions and counts', () => {
+  for (const [path, cwd, expected] of [
+    ['/Users/xiao/DeepSeekHarness/大肥鱼小基地/index.html', undefined,
+      'file:///Users/xiao/DeepSeekHarness/%E5%A4%A7%E8%82%A5%E9%B1%BC%E5%B0%8F%E5%9F%BA%E5%9C%B0/index.html'],
+    ['C:\\project\\web pages\\preview #100%.HTM', undefined,
+      'file:///C:/project/web%20pages/preview%20%23100%25.HTM'],
+    ['sub/index.xhtml', '/workspace', 'file:///workspace/sub/index.xhtml'],
+  ]) {
+    for (const label of ['查看 index.html 的改动', 'View changes to index.html']) {
+      const { open, context, button } = fileMenu(path, { cwd, changed: true, title: false,
+        label, text: '已编辑 index.html +540 −0 预览' });
+      assert.equal(open.linkURL(context), expected);
+      open.onSelect(context);
+      assert.equal(button.clicks, 1);
+      button.disabled = true;
+      assert.equal(open.enabled(context), false);
+    }
+  }
+});
+
+test('changed-file group headers and missing, external or ambiguous descriptions stay inert', () => {
+  for (const descriptions of [
+    [],
+    [{ path: '/tmp/index.html', hidden: false, inside: true }],
+    [{ path: '/tmp/index.html', hidden: true, inside: false }],
+    [{ path: '', hidden: true, inside: true }],
+    [{ path: '/tmp/a.html', hidden: true, inside: true }, { path: '/tmp/b.html', hidden: true, inside: true }],
+  ]) {
+    const { open, context } = fileMenu('/tmp/index.html', { changed: true, descriptions,
+      label: '查看改动', text: '已编辑 2 个文件 +540 −0', recognized: false });
+    assert.equal(open.linkURL(context), '');
+  }
+});
+
+test('changed non-web files retain the official opener without browser actions', () => {
+  for (const path of ['/tmp/index.html.txt', '/tmp/code.ts', '/tmp/image.png']) {
+    const { open, context, button } = fileMenu(path, { changed: true, title: false,
+      label: 'View changes to index.html', text: 'Edited index.html +540 −0' });
+    assert.equal(open.linkURL(context), '');
+    open.onSelect(context);
+    assert.equal(button.clicks, 1);
   }
 });

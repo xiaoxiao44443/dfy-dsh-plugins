@@ -114,9 +114,25 @@ function filePathFromLabel(label: string): string {
   return match?.[1]?.trim() ?? '';
 }
 
+function changedFilePath(button: HTMLButtonElement): string {
+  const card = button.closest('[data-changed-files]');
+  if (card === null) return '';
+  // DSH's single-file header and multi-file rows describe their full path with
+  // a hidden span. Visible text also contains "Edited" and diff counts.
+  const ids = (button.getAttribute('aria-describedby') ?? '').trim().split(/\s+/u).filter(Boolean);
+  const paths = ids.flatMap((id) => {
+    const description = button.ownerDocument.getElementById(id);
+    if (description === null || !description.hidden || !card.contains(description)) return [];
+    const path = description.textContent?.trim() ?? '';
+    return path.length > 0 ? [path] : [];
+  });
+  return paths.length === 1 ? paths[0]! : '';
+}
+
 function fileLinkButton(target: Element): HTMLButtonElement | null {
   const button = target.closest('button');
   if (!(button instanceof HTMLButtonElement)) return null;
+  if (button.closest('[data-changed-files]') !== null) return changedFilePath(button).length > 0 ? button : null;
   const label = button.getAttribute('aria-label') ?? '';
   const text = button.textContent?.trim() ?? '';
   if (button.closest('[data-produced-files-row="true"]') !== null) return button;
@@ -168,6 +184,7 @@ function visualizationLinkForFile(button: HTMLButtonElement | null): string {
 
 function filePathForButton(button: HTMLButtonElement | null): string {
   if (button === null) return '';
+  if (button.closest('[data-changed-files]') !== null) return changedFilePath(button);
   const title = button.getAttribute('title')?.trim() ?? '';
   if (title.length > 0) return title;
   const label = button.getAttribute('aria-label')?.trim() ?? '';
