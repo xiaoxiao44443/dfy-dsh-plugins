@@ -8,13 +8,17 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const registry = 'https://registry.npmjs.org/';
-const publish = process.argv.includes('--publish');
-assert.ok(process.argv.slice(2).every(arg => arg === '--publish'), 'Only --publish is supported; omit it for a dry run');
+const args = process.argv.slice(2);
+const publish = args.includes('--publish');
+assert.ok(args.every(arg => arg === '--publish' || arg.startsWith('--package=')), 'Use --publish and optional --package=@dfy-plugins/name; omit --publish for a dry run');
+const selectedNames = new Set(args.filter(arg => arg.startsWith('--package=')).map(arg => arg.slice('--package='.length)));
 const artifacts = JSON.parse(await readFile(join(root, 'release/npm/manifest.json'), 'utf8'));
 assert.ok(Array.isArray(artifacts) && artifacts.length > 0, 'Run pnpm release:prepare first');
+for (const name of selectedNames) assert.ok(artifacts.some(artifact => artifact.name === name), `Unknown release package: ${name}`);
+const selectedArtifacts = selectedNames.size === 0 ? artifacts : artifacts.filter(artifact => selectedNames.has(artifact.name));
 const pending = [];
 // Finish the whole preflight before uploading any package.
-for (const artifact of artifacts) {
+for (const artifact of selectedArtifacts) {
   assert.notEqual(artifact.name, '@dfy-plugins/dsh-vision', 'The vision plugin is retired and must not be published');
   assert.equal(basename(artifact.filename), artifact.filename);
   const path = join(root, 'release/npm', artifact.filename);

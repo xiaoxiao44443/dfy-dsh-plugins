@@ -73,12 +73,19 @@ pnpm release:test-install ../dfy-dsh-desktop/build/harness-runtime --registry
 触发方式：
 
 - GitHub Actions → **Publish npm packages** → Run workflow：默认只检查；选择 `main`
-  并勾选 `publish` 才上传。
+  并勾选 `publish` 才上传。`packages` 可填写逗号分隔的完整包名，只发布本批更新的包；留空则检查和发布全部归档。
 - 推送 `npm-*` 标签：测试、构建、安装验证全部通过后自动发布。例如 `npm-2026-09-10`。
   标签用于标识这一批发布，包版本仍取自各自的 `package.json`。
 
 构建任务没有 npm 写入凭据，发布任务通过 Artifact 接收已验证的同一批 `.tgz`，
 再核对校验值并上传。普通代码 push 和 PR 的 CI 只检查归档，不发布。
+
+单独发布组件时，将对应组合包也纳入本批次。例如可视化更新可填写
+`@dfy-plugins/dsh-visualize,@dfy-plugins/dsh-bundle`。所有包仍会完成构建和安装验证，
+发布任务只对所选包执行 npm 预检和上传；包名不在归档清单中会直接报错。
+本地同样可以运行 `node scripts/publish-release.mjs --package=@dfy-plugins/dsh-visualize --package=@dfy-plugins/dsh-bundle`
+预演，确认后加 `--publish`。未选中的历史版本不会因不同平台的换行符或归档差异阻止本次发布；
+所选包仍保留同版本完整性冲突检查，不覆盖已发布内容。
 
 ## 用户安装与更新
 

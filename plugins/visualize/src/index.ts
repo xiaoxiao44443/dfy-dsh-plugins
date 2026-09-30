@@ -35,6 +35,13 @@ const SKILL_CONTENT = `# DFY Visualize
 
 Use this Skill when an explanation benefits from an interactive chart, diagram, comparison, simulator, or UI mockup rendered directly in the conversation.
 
+## When to use
+
+- A request for a new standalone file, including an HTML document or SVG animation, website, app page, component, or other project change is not an in-conversation visualization request, even when the deliverable contains charts or interactive content.
+- A request to preview, explain, or explore a proposed interface or concept in the conversation is an in-conversation visualization request.
+- Create a visualization only when the user needs to see or explore it in the conversation and it materially improves the explanation. Do not use this Skill merely because the request involves HTML, SVG, data, charts, animation, or an interactive page.
+- If this Skill was loaded for a standalone file or project task, continue with the normal file or project workflow. Do not apply the Host surface contract or publish an inline visualization unless the user also requests an in-conversation preview or exploration.
+
 ## Host surface contract
 
 The artifact is embedded directly beneath an assistant response; it is not a standalone web page. Unless the user explicitly requests a card, poster, dashboard shell, or full-canvas background:
@@ -392,7 +399,7 @@ export function apply(ctx: Context): void {
   const disposeTool = ctx.tools.register(createVisualizationTool(ctx, rememberedSessionDirs));
   const disposeSkill = ctx.skills.register({
     name: SKILL_NAME,
-    description: '创建可在对话中直接交互的 HTML 图表、图示、模拟器和界面原型。',
+    description: '在对话中直接展示有助于解释或探索的交互图表、图示、模拟器、对比和界面原型。仅当对话内展示能明显帮助理解时使用；创建独立 HTML、SVG 动画文件、网站、应用页面、组件或修改项目不属于此技能，不能仅因包含图表或交互就调用。',
     source: 'runtime',
     content: SKILL_CONTENT,
     invocation: { modelInvocable: true, userInvocable: true },

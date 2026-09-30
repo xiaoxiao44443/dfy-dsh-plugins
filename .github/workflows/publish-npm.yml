@@ -9,6 +9,10 @@ on:
         description: Publish verified packages to npm (otherwise only validate)
         type: boolean
         default: false
+      packages:
+        description: Package names separated by commas (empty means all packages)
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -74,4 +78,13 @@ jobs:
           name: npm-packages
           path: release/npm/
       - name: Publish checked archives through npm OIDC
-        run: node scripts/publish-release.mjs --publish
+        env:
+          DFY_NPM_PACKAGES: ${{ inputs.packages }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { spawnSync } from 'node:child_process';
+          const packages = (process.env.DFY_NPM_PACKAGES ?? '').split(',').map(name => name.trim()).filter(Boolean);
+          const result = spawnSync(process.execPath, ['scripts/publish-release.mjs', '--publish', ...packages.map(name => `--package=${name}`)], { stdio: 'inherit' });
+          if (result.error) throw result.error;
+          process.exit(result.status ?? 1);
+          NODE
