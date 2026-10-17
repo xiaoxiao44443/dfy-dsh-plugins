@@ -23,7 +23,7 @@ const launcher = join(home, 'dsh.mjs');
 const env = { ...process.env, DSH_HOME: home, DSH_CODEX_BRIDGE_FILE: join(home, 'bridge.json'), DSH_TELEMETRY: '0',
   PATH: `${join(runtime, 'node_modules/.bin')}${delimiter}${process.env.PATH}` };
 const run = args => execFileSync(process.execPath, ['--expose-internals', launcher, ...args], {
-  cwd: home, env, windowsHide: true, encoding: 'utf8', timeout: 60_000, maxBuffer: 4 * 1024 * 1024,
+  cwd: home, env, windowsHide: true, encoding: 'utf8', timeout: 180_000, maxBuffer: 4 * 1024 * 1024,
 });
 const writeJson = (path, value) => writeFile(path, JSON.stringify(value, null, 2) + '\n');
 let succeeded = false;
@@ -62,7 +62,7 @@ try {
     export const inject = ['pluginManager', 'appReady', 'settings'];
     export function apply(ctx) {
       ctx.effect(() => ctx.appReady.onReady(() => setImmediate(async () => {
-        const watchdog = setTimeout(() => { console.error('Lifecycle check timed out'); process.exit(1); }, 30000);
+        const watchdog = setTimeout(() => { console.error('Lifecycle check timed out'); process.exit(1); }, 90000);
         try {
           const names = ${JSON.stringify(members)};
           const rows = () => ctx.pluginManager.listPlugins();

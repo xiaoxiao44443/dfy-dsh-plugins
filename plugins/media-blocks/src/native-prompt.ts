@@ -12,6 +12,7 @@ interface NativeRequest {
 }
 interface ReceiptBinding { commit(): void; [Symbol.dispose](): void }
 export interface NativeController {
+  readonly ctx?: { readonly invocation?: { readonly peer?: { readonly principal?: { kind: string; [key: string]: unknown } } } };
   prompt(request: NativeRequest, signal: AbortSignal): Promise<{ accepted: true }>;
   resolveAgent(sessionId: string): Promise<{ agent: Agent } | { error: unknown }>;
 }
@@ -37,7 +38,7 @@ function attachmentError(message: string, reason: string): Error {
 interface Installation {
   owner: object;
   tails: Map<string, Promise<unknown>>;
-  handler(request: NativeRequest, signal: AbortSignal): Promise<{ accepted: true }>;
+  handler(this: NativeController, request: NativeRequest, signal: AbortSignal): Promise<{ accepted: true }>;
   original: NativeController['prompt'];
   restore(): void;
 }
@@ -53,7 +54,7 @@ export function installNativePromptBridge(controller: NativeController, deps: Na
     const original = controller.prompt;
     const state: Installation = {
       owner, tails: new Map(), original,
-      handler: (request, signal) => original.call(controller, request, signal),
+      handler(request, signal) { return original.call(this, request, signal); },
       restore() {
         if (Object.getOwnPropertyDescriptor(controller, 'prompt')?.value !== wrapped) return;
         if (descriptor) Object.defineProperty(controller, 'prompt', descriptor);
@@ -61,9 +62,11 @@ export function installNativePromptBridge(controller: NativeController, deps: Na
         Reflect.deleteProperty(target, INSTALLATION);
       },
     };
-    const wrapped: NativeController['prompt'] = (request, signal) => {
+    const wrapped: NativeController['prompt'] = function (this: NativeController, request, signal) {
+      // Gateway receivers carry per-call context; retain it across the FIFO wait.
+      const receiver = this;
       const before = state.tails.get(request.sessionId) ?? Promise.resolve();
-      const result = before.catch(() => {}).then(() => { signal.throwIfAborted(); return state.handler(request, signal); });
+      const result = before.catch(() => {}).then(() => { signal.throwIfAborted(); return state.handler.call(receiver, request, signal); });
       state.tails.set(request.sessionId, result);
       void result.finally(() => { if (state.tails.get(request.sessionId) === result) state.tails.delete(request.sessionId); }).catch(() => {});
       return result;
@@ -74,16 +77,19 @@ export function installNativePromptBridge(controller: NativeController, deps: Na
   }
   const state = installation;
   state.owner = owner;
-  state.handler = async (request, signal) => {
+  state.handler = async function (request, signal) {
+    const receiver = this;
+    const principal = receiver.ctx && 'invocation' in receiver.ctx
+      ? receiver.ctx.invocation?.peer?.principal : undefined;
     let originalError: unknown;
-    try { return await state.original.call(controller, request, signal); }
+    try { return await state.original.call(receiver, request, signal); }
     catch (error) {
       if (!imageUnsupported(error) || !request.content.some((part) => part.type === 'image')) throw error;
       originalError = error;
     }
     signal.throwIfAborted();
     if (!await deps.prepare()) throw originalError;
-    const resolved = await controller.resolveAgent(request.sessionId);
+    const resolved = await receiver.resolveAgent(request.sessionId);
     if ('error' in resolved) throw resolved.error;
     const { agent } = resolved;
     const receipts = new Set<string>();
@@ -109,6 +115,7 @@ export function installNativePromptBridge(controller: NativeController, deps: Na
     if (state.owner !== owner || !deps.isLive(agent)) throw attachmentError('会话或媒体插件已重新加载，请重试上传。', 'SESSION_CHANGED');
     const message = createUserMessage({ content, source: {
       kind: 'user', rpcId: request.requestId,
+      ...(principal === undefined || principal.kind === 'owner' ? {} : { principal }),
       ...(request.clientTimeZone === undefined ? {} : { clientTimeZone: request.clientTimeZone }),
     } });
     const binding = deps.files.bindPrompt(agent, [...receipts], request.requestId);
@@ -122,7 +129,7 @@ export function installNativePromptBridge(controller: NativeController, deps: Na
   return () => {
     if (state.owner !== owner) return;
     state.owner = {};
-    state.handler = (request, signal) => state.original.call(controller, request, signal);
+    state.handler = function (request, signal) { return state.original.call(this, request, signal); };
     state.restore();
   };
 }

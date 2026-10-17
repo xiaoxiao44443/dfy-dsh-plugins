@@ -1,7 +1,10 @@
 # DFY DSH Appearance
 
-Adds an **外观** page to the Harness settings sidebar for chat font size,
-response line height, and process line height. Process disclosure follows
+Adds an **外观** page to the Harness settings sidebar for response and process
+line height. On DSH 0.2.1, fonts and font sizes come from the official General
+settings; the duplicate size slider and CSS overrides are disabled. Older
+supported runtimes retain the original size control without migrating saved
+values into official preferences. Process disclosure follows
 Harness's built-in display mode; the former per-response folding option
 has been removed and existing values are ignored.
 

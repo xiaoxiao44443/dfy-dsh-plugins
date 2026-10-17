@@ -7,11 +7,13 @@ import {
   JsonBlock,
   Tooltip,
   writeClipboard,
-  projectUserText,
 } from '@deepseek-ai/dsh-client-ui-primitives';
 
+// Older runtimes expose the projector; 0.2.1 owns text rules in its content Factory.
+import * as legacyPrimitives from '@deepseek-ai/dsh-client-ui-primitives';
 function UserText({ text }: { text: string }): React.ReactElement {
-  return <>{projectUserText(text, [], [])}</>;
+  const projector = (legacyPrimitives as { projectUserText?: (text: string, references: unknown[], skills: unknown[]) => React.ReactNode }).projectUserText;
+  return <>{typeof projector === 'function' ? projector(text, [], []) : text}</>;
 }
 
 export const name = 'media-blocks';
@@ -52,8 +54,9 @@ interface MediaImageBlock {
 interface ChatNodeProps {
   node: {
     seq: number;
-    data: { time: number; content: readonly unknown[] };
+    data: { time: number; content: readonly unknown[]; referenceLabels?: readonly string[]; skillNames?: readonly string[] };
   };
+  renderFactorySlot?: (name: string, props: Record<string, unknown>) => React.ReactNode;
   loadImage: ImageLoader;
   t(key: string, values?: Record<string, unknown>): string;
 }
@@ -232,11 +235,12 @@ function MediaGallery({ images, load, labels }: {
   );
 }
 
-function UserMediaNode({ node, loadImage, t }: ChatNodeProps): React.ReactElement {
+function UserMediaNode({ node, loadImage, t, renderFactorySlot }: ChatNodeProps): React.ReactElement {
   const [copied, setCopied] = React.useState(false);
   const texts: string[] = [];
   const images: { attachment: ImageAttachmentRef }[] = [];
   const files: FileAttachment[] = [];
+  const attachments: unknown[] = [];
   const refs = new Map<string, string>();
   const rest: unknown[] = [];
   for (const block of node.data.content) {
@@ -245,15 +249,18 @@ function UserMediaNode({ node, loadImage, t }: ChatNodeProps): React.ReactElemen
       texts.push((block as { text: string }).text);
     } else if (isMediaImageBlock(block)) {
       images.push({ attachment: block.resource.attachment });
+      attachments.push({ type: 'image', image: { attachment: block.resource.attachment } });
       refs.set(String(block.resource.attachment.attachmentId), block.resource.ref);
     } else if (typeof block === 'object' && block !== null && !Array.isArray(block)
       && (block as { type?: unknown }).type === 'image'
       && typeof (block as { attachment?: unknown }).attachment === 'object'
       && (block as { attachment?: unknown }).attachment !== null) {
-      images.push({ attachment: (block as { attachment: ImageAttachmentRef }).attachment });
+      const attachment = (block as { attachment: ImageAttachmentRef }).attachment;
+      images.push({ attachment });
+      attachments.push({ type: 'image', image: { attachment } });
     } else {
       const file = fileAttachment(block);
-      if (file !== undefined) files.push(file);
+      if (file !== undefined) { files.push(file); attachments.push({ type: 'file', file }); }
       else rest.push(block);
     }
   }
@@ -281,7 +288,12 @@ function UserMediaNode({ node, loadImage, t }: ChatNodeProps): React.ReactElemen
   };
   return (
     <div className="dsh-media-user-row" data-time-hover-root>
-      <div className="dsh-media-user-stack">
+      {typeof renderFactorySlot === 'function' ? renderFactorySlot('conversation.chat.user.content', {
+        content: { text, attachments, extraBlocks: rest, referenceLabels: node.data.referenceLabels },
+        facts: { sessionLabels: node.data.referenceLabels ?? [], skillNames: node.data.skillNames ?? [] },
+        interactive: true,
+        loadImage: loader,
+      }) : <div className="dsh-media-user-stack">
         <MediaGallery images={images} load={loader} labels={labels} />
         {files.length > 0 && <div className="dsh-media-files" data-message-attachments>
           {files.map((file, index) => <span className="dsh-media-file-card" title={file.name} key={`${file.attachmentId}:${index}`}>
@@ -305,7 +317,7 @@ function UserMediaNode({ node, loadImage, t }: ChatNodeProps): React.ReactElemen
             ))}
           </div>
         )}
-      </div>
+      </div>}
       <div className="dsh-media-user-actions">
         <span>{time}</span>
         <Tooltip label={copied ? t('copied') : t('copy')} side="bottom">

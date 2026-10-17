@@ -91,3 +91,12 @@ test('image-capable official prompts pass through without preparing or storing p
   assert.deepEqual(await f.controller.prompt(f.request, signal()), { accepted: true });
   assert.equal(f.bindings.length, 0); assert.equal(f.deliveries.length, 0);
 });
+
+test('fallback retains the authenticated caller and never records the implicit owner', async () => {
+  for (const principal of [{ kind: 'connection', id: 'fixture' }, { kind: 'owner' }]) {
+    const f = fixture(); f.controller.ctx = { invocation: { peer: { principal } } };
+    installNativePromptBridge(f.controller, f.deps);
+    await f.controller.prompt(f.request, signal());
+    assert.deepEqual(f.deliveries[0][1].source.principal, principal.kind === 'owner' ? undefined : principal);
+  }
+});

@@ -310,28 +310,30 @@ function installFileLinkContextMenu(ctx: ClientCtx): () => void {
   };
 }
 
+const NATIVE_TYPOGRAPHY_ATTRIBUTE = 'data-dsh-appearance-native-fonts';
+
 const STYLES = `
-body[${BODY_ATTRIBUTE}] {
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) {
   --dsh-appearance-chat-font-size: 16px;
   --dsh-appearance-chat-line-height: 28px;
   --dsh-appearance-process-font-size: 14px;
   --dsh-appearance-process-line-height: 20px;
 }
-body[${BODY_ATTRIBUTE}] [data-composer-card] [data-input-scroll]
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-composer-card] [data-input-scroll]
   :is(textarea, [data-input-backdrop], [data-input-mirror]) {
   font-size: var(--dsh-appearance-chat-font-size) !important;
 }
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='assistant-step'] > div,
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='assistant-step'] > div > div > :not([data-variant='think']) {
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='assistant-step'] > div,
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='assistant-step'] > div > div > :not([data-variant='think']) {
   font-size: var(--dsh-appearance-chat-font-size) !important;
   line-height: var(--dsh-appearance-chat-line-height) !important;
 }
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='assistant-step']
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='assistant-step']
   :is(p, li, blockquote, pre, code, table, td, th):not([data-variant='think'] *) {
   font-size: var(--dsh-appearance-chat-font-size) !important;
   line-height: var(--dsh-appearance-chat-line-height) !important;
 }
-body[${BODY_ATTRIBUTE}] :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering'])
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering'])
   :is(
     .dsh-media-user-bubble,
     [data-time-hover-root] > div:first-child > [class*='_bubble'],
@@ -340,20 +342,20 @@ body[${BODY_ATTRIBUTE}] :is([data-chat-flow-kind='user'], [data-chat-flow-kind='
   font-size: var(--dsh-appearance-chat-font-size) !important;
   line-height: var(--dsh-appearance-chat-line-height) !important;
 }
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='assistant-step'] h1 { font-size: calc(var(--dsh-appearance-chat-font-size) + 12px) !important; line-height: calc(var(--dsh-appearance-chat-line-height) + 8px) !important; }
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='assistant-step'] h2 { font-size: calc(var(--dsh-appearance-chat-font-size) + 8px) !important; line-height: calc(var(--dsh-appearance-chat-line-height) + 6px) !important; }
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='assistant-step'] h3 { font-size: calc(var(--dsh-appearance-chat-font-size) + 4px) !important; line-height: calc(var(--dsh-appearance-chat-line-height) + 4px) !important; }
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='assistant-step'] h4 { font-size: calc(var(--dsh-appearance-chat-font-size) + 2px) !important; line-height: calc(var(--dsh-appearance-chat-line-height) + 2px) !important; }
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='assistant-step'] :is(h5, h6, td, th) { font-size: var(--dsh-appearance-chat-font-size) !important; line-height: var(--dsh-appearance-chat-line-height) !important; }
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='context'] :is(button, span),
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='assistant-step'] [data-variant='think'] :is(button, span, div),
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='tool-call'] [data-variant] :is(button, span),
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='tool-call'] [data-tool] :is(button, span),
-body[${BODY_ATTRIBUTE}] [data-chat-flow-kind='command'] :is(button, span) {
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='assistant-step'] h1 { font-size: calc(var(--dsh-appearance-chat-font-size) + 12px) !important; line-height: calc(var(--dsh-appearance-chat-line-height) + 8px) !important; }
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='assistant-step'] h2 { font-size: calc(var(--dsh-appearance-chat-font-size) + 8px) !important; line-height: calc(var(--dsh-appearance-chat-line-height) + 6px) !important; }
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='assistant-step'] h3 { font-size: calc(var(--dsh-appearance-chat-font-size) + 4px) !important; line-height: calc(var(--dsh-appearance-chat-line-height) + 4px) !important; }
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='assistant-step'] h4 { font-size: calc(var(--dsh-appearance-chat-font-size) + 2px) !important; line-height: calc(var(--dsh-appearance-chat-line-height) + 2px) !important; }
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='assistant-step'] :is(h5, h6, td, th) { font-size: var(--dsh-appearance-chat-font-size) !important; line-height: var(--dsh-appearance-chat-line-height) !important; }
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='context'] :is(button, span),
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='assistant-step'] [data-variant='think'] :is(button, span, div),
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='tool-call'] [data-variant] :is(button, span),
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='tool-call'] [data-tool] :is(button, span),
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) [data-chat-flow-kind='command'] :is(button, span) {
   font-size: var(--dsh-appearance-process-font-size) !important;
   line-height: var(--dsh-appearance-process-line-height) !important;
 }
-body[${BODY_ATTRIBUTE}] :is(
+body[${BODY_ATTRIBUTE}]:not([${NATIVE_TYPOGRAPHY_ATTRIBUTE}]) :is(
   [data-chat-flow-kind='context'] [data-disclosure-row],
   [data-chat-flow-kind='assistant-step'] [data-variant='think'],
   [data-chat-flow-kind='assistant-step'] [data-variant='think'] [data-disclosure-row],
@@ -363,6 +365,26 @@ body[${BODY_ATTRIBUTE}] :is(
 ) {
   height: auto !important;
   min-height: var(--dsh-appearance-process-line-height) !important;
+}
+
+/* Native DSH owns text/code sizes, heading hierarchy and font families. */
+body[${BODY_ATTRIBUTE}][${NATIVE_TYPOGRAPHY_ATTRIBUTE}] [data-chat-flow-kind='assistant-step']
+  :is(p, li, blockquote, table, td, th):not([data-variant='think'] *):not(pre *):not(code *) {
+  line-height: var(--dsh-appearance-chat-line-height) !important;
+}
+body[${BODY_ATTRIBUTE}][${NATIVE_TYPOGRAPHY_ATTRIBUTE}] :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering'])
+  :is(.dsh-media-user-bubble, [class*='_bubble']) {
+  line-height: var(--dsh-appearance-chat-line-height) !important;
+}
+body[${BODY_ATTRIBUTE}][${NATIVE_TYPOGRAPHY_ATTRIBUTE}] :is(
+  [data-chat-flow-kind='context'] [data-disclosure-row],
+  [data-chat-flow-kind='assistant-step'] [data-variant='think'],
+  [data-chat-flow-kind='tool-call'] [data-tool],
+  [data-chat-flow-kind='command'] [data-disclosure-row]
+) {
+  height: auto !important;
+  min-height: var(--dsh-appearance-process-line-height) !important;
+  line-height: var(--dsh-appearance-process-line-height) !important;
 }
 .dsh-appearance-artifacts {
   display: flex;
@@ -435,6 +457,12 @@ function readSettings(scope: SettingsScope<Partial<AppearanceSettings>>): Appear
 }
 
 function applyTypography(fontSize: number, lineHeightRatio: number, processLineHeightRatio: number): void {
+  if (document.body.hasAttribute(NATIVE_TYPOGRAPHY_ATTRIBUTE)) {
+    document.body.style.setProperty('--dsh-appearance-chat-line-height', String(lineHeightRatio));
+    document.body.style.setProperty('--dsh-appearance-process-font-size', 'var(--dsh-content-font-size-secondary, 13px)');
+    document.body.style.setProperty('--dsh-appearance-process-line-height', 'calc(var(--dsh-content-font-size-secondary, 13px) * ' + String(processLineHeightRatio) + ')');
+    return;
+  }
   const processSize = Math.max(13, fontSize - 2);
   const chatLineHeight = Math.round(fontSize * lineHeightRatio);
   const processLineHeight = Math.round(processSize * processLineHeightRatio);
@@ -444,9 +472,14 @@ function applyTypography(fontSize: number, lineHeightRatio: number, processLineH
   document.body.style.setProperty('--dsh-appearance-process-line-height', `${String(processLineHeight)}px`);
 }
 
-function installPreferences(scope: SettingsScope<Partial<AppearanceSettings>>): () => void {
+function installPreferences(scope: SettingsScope<Partial<AppearanceSettings>>, nativeTypography: boolean): () => void {
+  const ownerKey = Symbol.for('@dfy-plugins/dsh-appearance/preferences');
+  const owner = {};
+  Reflect.set(document.body, ownerKey, owner);
   const update = (): void => {
+    if (Reflect.get(document.body, ownerKey) !== owner) return;
     document.body.setAttribute(BODY_ATTRIBUTE, '');
+    document.body.toggleAttribute(NATIVE_TYPOGRAPHY_ATTRIBUTE, nativeTypography);
     const settings = readSettings(scope);
     applyTypography(settings.chatFontSize, settings.chatLineHeightRatio, settings.processLineHeightRatio);
   };
@@ -454,7 +487,10 @@ function installPreferences(scope: SettingsScope<Partial<AppearanceSettings>>): 
   const unsubscribe = scope.subscribe(update);
   return () => {
     unsubscribe();
+    if (Reflect.get(document.body, ownerKey) !== owner) return;
+    Reflect.deleteProperty(document.body, ownerKey);
     document.body.removeAttribute(BODY_ATTRIBUTE);
+    document.body.removeAttribute(NATIVE_TYPOGRAPHY_ATTRIBUTE);
     document.body.style.removeProperty('--dsh-appearance-chat-font-size');
     document.body.style.removeProperty('--dsh-appearance-chat-line-height');
     document.body.style.removeProperty('--dsh-appearance-process-font-size');
@@ -693,7 +729,7 @@ function useDebouncedSettingSave(
   return { schedule, flush: commit, cancel };
 }
 
-function AppearancePage({ scope }: { scope: SettingsScope<Partial<AppearanceSettings>> }): React.ReactElement {
+function AppearancePage({ scope, nativeTypography }: { scope: SettingsScope<Partial<AppearanceSettings>>; nativeTypography: boolean }): React.ReactElement {
   const snapshot = React.useSyncExternalStore(
     (listener) => scope.subscribe(listener),
     () => scope.getSnapshot(),
@@ -723,12 +759,12 @@ function AppearancePage({ scope }: { scope: SettingsScope<Partial<AppearanceSett
   return (
     <div className="dsh-appearance-root">
       <h3 className="dsh-appearance-heading">外观</h3>
-      <p className="dsh-appearance-intro">调整对话字号、回复行距和过程行距。</p>
+      <p className="dsh-appearance-intro">{nativeTypography ? '调整回复行距和过程行距；字体与字号请在「通用设置」中调整。' : '调整对话字号、回复行距和过程行距。'}</p>
 
       <section className="dsh-appearance-section">
         <h4 className="dsh-appearance-section-title">对话</h4>
         <div className="dsh-appearance-card">
-          <div className="dsh-appearance-row">
+          {!nativeTypography && <div className="dsh-appearance-row">
             <div className="dsh-appearance-copy">
               <div className="dsh-appearance-title">对话字号</div>
               <div className="dsh-appearance-description">调整助手回复和过程行；过程文字通常比正文小 2px，最小保持 13px。</div>
@@ -755,7 +791,7 @@ function AppearancePage({ scope }: { scope: SettingsScope<Partial<AppearanceSett
               />
               <output className="dsh-appearance-size-value">{fontSize}px</output>
             </div>
-          </div>
+          </div>}
 
           <div className="dsh-appearance-row">
             <div className="dsh-appearance-copy">
@@ -815,14 +851,14 @@ function AppearancePage({ scope }: { scope: SettingsScope<Partial<AppearanceSett
             </div>
           </div>
 
-          <div className="dsh-appearance-preview" style={{ fontSize: `${String(fontSize)}px`, lineHeight: lineHeightRatio }}>
+          <div className="dsh-appearance-preview" style={{ fontSize: nativeTypography ? 'var(--dsh-content-font-size, 14px)' : `${String(fontSize)}px`, lineHeight: lineHeightRatio }}>
             <div className="dsh-appearance-preview-label">预览</div>
             这是对话正文的显示大小。思考与工具过程会保持更轻、更紧凑的层级。
           </div>
         </div>
       </section>
 
-      {fontSize === DEFAULT_CHAT_FONT_SIZE
+      {(nativeTypography || fontSize === DEFAULT_CHAT_FONT_SIZE)
         && lineHeightRatio === DEFAULT_CHAT_LINE_HEIGHT_RATIO
         && processLineHeightRatio === DEFAULT_PROCESS_LINE_HEIGHT_RATIO ? null : (
         <button
@@ -841,7 +877,7 @@ function AppearancePage({ scope }: { scope: SettingsScope<Partial<AppearanceSett
               DEFAULT_CHAT_LINE_HEIGHT_RATIO,
               DEFAULT_PROCESS_LINE_HEIGHT_RATIO,
             );
-            save('chatFontSize', DEFAULT_CHAT_FONT_SIZE);
+            if (!nativeTypography) save('chatFontSize', DEFAULT_CHAT_FONT_SIZE);
             save('chatLineHeightRatio', DEFAULT_CHAT_LINE_HEIGHT_RATIO);
             save('processLineHeightRatio', DEFAULT_PROCESS_LINE_HEIGHT_RATIO);
           }}
@@ -857,8 +893,10 @@ function AppearancePage({ scope }: { scope: SettingsScope<Partial<AppearanceSett
 
 export function apply(ctx: ClientCtx): void {
   const scope = ctx.configForms.get<Partial<AppearanceSettings>>(SETTINGS_NAMESPACE );
+  const theme = ctx.get?.('theme') as { getTheme?(): { fontSizes?: unknown } } | undefined;
+  const nativeTypography = theme?.getTheme?.().fontSizes !== undefined;
   ctx.effect(installStyles, 'dsh-appearance: client styles');
-  ctx.effect(() => installPreferences(scope), 'dsh-appearance: apply preferences');
+  ctx.effect(() => installPreferences(scope, nativeTypography), 'dsh-appearance: apply preferences');
   ctx.effect(installArtifactPlacements, 'dsh-appearance: artifact placement');
   ctx.inject(['desktopContextMenu'], (menuCtx) => {
     menuCtx.effect(() => installFileLinkContextMenu(menuCtx), 'dsh-appearance: file link context menu');
@@ -869,6 +907,6 @@ export function apply(ctx: ClientCtx): void {
     id: 'appearance',
     order: 34,
     label: '外观',
-  }, () => <AppearancePage scope={scope} />));
+  }, () => <AppearancePage scope={scope} nativeTypography={nativeTypography} />));
 
 }

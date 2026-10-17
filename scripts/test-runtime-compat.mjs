@@ -107,19 +107,25 @@ try {
   console.log('PASS actual ToolRuntime: original pre-execute policy and approval gate control body execution');
 
   // Cordis rebinding creates caller proxies; verify install/cleanup against them.
+  const callerContexts = [];
   class Controller extends Service {
     constructor(context) { super(context, 'fixtureController'); }
-    async prompt() { return { accepted: true }; }
+    async prompt() { callerContexts.push(this.ctx.invocation?.peer?.principal); return { accepted: true }; }
   }
+  ctx.accessor('invocation', { get: () => undefined });
   new Controller(ctx);
   const controller = ctx.fixtureController;
   const cleanup1 = installNativePromptBridge(controller, {});
   const cleanup2 = installNativePromptBridge(controller, {});
   cleanup1();
   assert.deepEqual(await controller.prompt({ sessionId: 'test', content: [] }, new AbortController().signal), { accepted: true });
+  const caller = { kind: 'connection', id: 'caller-fixture' };
+  const called = ctx.extend({ invocation: { peer: { principal: caller } } }).fixtureController;
+  await called.prompt({ sessionId: 'test', content: [] }, new AbortController().signal);
+  assert.deepEqual(callerContexts, [undefined, caller]);
   cleanup2();
   assert.equal(Object.hasOwn(controller, 'prompt'), false);
-  console.log('PASS actual Cordis service proxy: native prompt install, overlapping reload and cleanup');
+  console.log('PASS actual Cordis service proxy: caller context, native prompt install, overlapping reload and cleanup');
 
   const { SessionCommandController } = await import(pathToFileURL(join(dirname(runtimeRequire.resolve('@deepseek-ai/dsh-api-session-controller/package.json')), 'lib/types/commands.js')).href);
   const inbox = { nextTurn: [], nextStep: [] };
@@ -135,7 +141,16 @@ try {
     attachments: { admitPromptContent: async parts => parts.map(p => p.type === 'image' ? { type: 'image', attachment: imageRef } : p) },
   };
   const commands = new SessionCommandController(host, agentController, '/tmp');
-  const native = { prompt: request => commands.prompt(request), resolveAgent: agentController.resolveAgent };
+  const { SessionController } = await sdk('dsh-api-session-controller');
+  class UploadController extends Service {
+    constructor(context) { super(context, 'uploadFixtureController'); this.commands = commands; }
+    resolveAgent(id) { return agentController.resolveAgent(id); }
+    prompt(request, signal = new AbortController().signal) {
+      return SessionController.prototype.prompt.call(this, request, signal);
+    }
+  }
+  new UploadController(ctx);
+  const native = ctx.uploadFixtureController;
   const prompt = { sessionId: receiver.id, requestId: 'upload-retry', mode: 'queue', content: [
     { type: 'image', mediaType: 'image/png', data: 'fixture' }, { type: 'file', receiptId: 'own-file' },
   ], clientTimeZone: 'Asia/Shanghai' };
@@ -146,8 +161,12 @@ try {
   assert.deepEqual(inbox.nextTurn[0].content.map(p => p.type), ['plugin:dfy-media', 'file']);
   await assert.rejects(native.prompt({ ...prompt, requestId: 'bad-timezone', clientTimeZone: 'Not/A_Timezone' }, new AbortController().signal), e => e.code === 'session/invalid-time-zone');
   assert.equal(inbox.nextTurn.length, 1);
+  const sources = [{ kind: 'connection', id: 'first-caller' }, { kind: 'connection', id: 'second-caller' }];
+  await Promise.all(sources.map((principal, i) => ctx.extend({ invocation: { peer: { principal } } }).uploadFixtureController.prompt(
+    { ...prompt, requestId: 'scoped-upload-' + i }, new AbortController().signal)));
+  assert.deepEqual(inbox.nextTurn.slice(1).map(message => message.source.principal), sources);
   removeNative();
-  console.log('PASS official SessionCommandController: text-model image admission, mixed files, idempotency and timezone validation');
+  console.log('PASS official SessionController: image fallback, mixed files, idempotency, timezone and concurrent caller identities');
 } finally {
   turns.dispose();
   await handle.dispose();

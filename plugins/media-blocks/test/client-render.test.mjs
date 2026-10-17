@@ -51,7 +51,17 @@ function render(content, generation) {
   assert.equal(entries.some(entry => entry.options.name === 'conversation.input.left'), false);
   const entry = entries.find(entry => entry.options.key === 'user');
   return renderToStaticMarkup(React.createElement(entry.component, {
-    node: { seq: 1, data: { time: 1, content } },
+    node: { seq: 1, data: { time: 1, content, referenceLabels: ['会话引用'], skillNames: ['demo'] } },
+    ...(generation !== 'native' ? {} : { renderFactorySlot(name, props) {
+      assert.equal(name, 'conversation.chat.user.content');
+      assert.deepEqual(Array.from(props.facts.sessionLabels), ['会话引用']);
+      assert.deepEqual(Array.from(props.facts.skillNames), ['demo']);
+      assert.equal(props.interactive, true);
+      assert.deepEqual(Array.from(props.content.attachments, item => item.type), ['image', 'file']);
+      assert.equal(props.content.extraBlocks.length, 0);
+      assert.equal(typeof props.loadImage, 'function');
+      return React.createElement('span', { 'data-native-content': true }, props.content.text);
+    } }),
     loadImage: async () => 'data:image/png;base64,fixture', t: key => key,
   }));
 }
@@ -82,4 +92,11 @@ test('unknown or malformed content remains visible instead of being silently rem
   const html = render([{ type: 'future-block', value: 'retained' }, { type: 'file', attachment: null }], 'current');
   assert.match(html, /data-extra-block/);
   assert.match(html, /retained/);
+});
+
+test('0.2.1 delegates text rules, references and ordered attachments to the official content Factory', () => {
+  const html = render([text, media, { type: 'file', attachment: { attachmentId: 'file-fixture', name: '说明.pdf', bytes: 2048 } }], 'native');
+  assert.match(html, /data-native-content/);
+  assert.match(html, /看看这张图片/);
+  assert.doesNotMatch(html, /data-legacy-text|dsh-media-gallery/);
 });
